@@ -405,6 +405,52 @@ The calibration rejects a simulation count too small to resolve the requested
 false-positive rate; for example, a 1 per cent rate needs at least 100 held-out
 paired realisations.
 
+## Broad synthetic validation
+
+The target-specific detector should be evaluated on regimes that were not used
+to choose its background law or diagnostic design. `ValidationCase` records a
+pre-registered cell in \(\nu_{\max}\), signal-to-noise ratio, observing window,
+and contaminant strength. `benchmark_synthetic_validation` compares three
+methods using paired simulations:
+
+1. the published-style EACF with its broad search and legacy background;
+2. an AsteroScale-restricted EACF;
+3. the jointly calibrated Urdr detector.
+
+```python
+from urdr import ValidationCase, benchmark_synthetic_validation
+
+case = ValidationCase(
+    name="held_out_low_duty_cycle",
+    split="validation",
+    window=window,
+    simulation=simulation,
+    published_centres_uhz=np.linspace(400.0, 1600.0, 25),
+    restricted_centres_uhz=np.linspace(800.0, 1200.0, 9),
+    filter_width_uhz=500.0,
+    delta_nu_grid_uhz=np.linspace(85.0, 115.0, 31),
+    segments_days=((0.0, 13.7), (13.7, 27.4)),
+    coherent_contaminants=coherent_contaminants,
+    segment_systematics=segment_systematics,
+    background=target_aware_background,
+)
+validation = benchmark_synthetic_validation(
+    cases=[training_case, case],
+    calibration_realizations=512,
+    evaluation_realizations=256,
+    target_false_positive_rate=0.01,
+    seed=42,
+)
+records = validation.to_records()
+reliability = validation.reliability
+```
+
+Calibration and evaluation use independent random streams. Detection rate,
+false-positive rate, \(\Delta\nu\) recovery, fractional error, Brier score, and
+reliability remain available separately by method, case, split, and simulation
+class. The package returns flat records but does not require pandas or a plotting
+library.
+
 ## Notebooks
 
 - [`notebooks/coherent_contaminants.ipynb`](notebooks/coherent_contaminants.ipynb)
@@ -422,6 +468,9 @@ paired realisations.
 - [`notebooks/joint_inference.ipynb`](notebooks/joint_inference.ipynb)
   fits the unified detector, runs it on a fresh injection, and inspects its
   held-out probability and false-alarm calibration.
+- [`notebooks/synthetic_validation.ipynb`](notebooks/synthetic_validation.ipynb)
+  compares all three detection methods on a small pre-registered matrix and
+  inspects reliability without conflating it with detection performance.
 
 All public APIs use NumPy-style docstrings. The documentation check can be run
 with:
