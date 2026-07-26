@@ -14,6 +14,8 @@ This first milestone provides:
 - deterministic paired simulations for target-specific null calibration;
 - optional empirical running-median background removal, including an
   AsteroScale-informed high-S/N safeguard;
+- a paired benchmark for no removal, legacy empirical whitening,
+  target-aware empirical whitening, and a fitted Harvey-like baseline;
 - a lightweight adapter for correlated AsteroScale posterior samples.
 
 Skuld is deliberately not a dependency. This allows an AsteroScale-only Urdr
@@ -110,3 +112,30 @@ simulation_parameters = samples.median_parameters()
 The next milestone will benchmark the unchanged published decision statistic
 against the AsteroScale-restricted and window-calibrated configurations before
 adding richer EACF morphology or coherent-signal vetoes.
+
+## Background-treatment benchmark
+
+The background arms can be compared at a common false-positive rate while
+reporting detection and `delta_nu` recovery separately:
+
+```python
+from urdr import benchmark_background_treatments
+
+benchmark = benchmark_background_treatments(
+    window=series.window,
+    simulation=config,
+    centre_frequencies_uhz=centres,
+    filter_width_uhz=400.0,
+    delta_nu_grid_uhz=np.linspace(45.0, 65.0, 41),
+    oscillation_amplitudes=[0.05, 0.1, 0.2, 0.4],
+    realizations=128,
+    target_false_positive_rate=0.01,
+    seed=42,
+)
+```
+
+Every arm uses the same simulated realizations. Its detection threshold is
+derived independently from its own exact-window null distribution, avoiding an
+unfair comparison caused by different statistic scales. The Harvey-like arm is
+a deliberately simple fitted reference model, not a claim that a single Harvey
+component describes real granulation perfectly.

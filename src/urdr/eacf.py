@@ -8,7 +8,7 @@ import numpy as np
 from numpy.typing import ArrayLike, NDArray
 from scipy.signal.windows import tukey
 
-from .background import EmpiricalBackgroundConfig, whiten_spectrum
+from .background import BackgroundConfig, whiten_spectrum
 from .models import TimeSeries
 
 FloatArray = NDArray[np.float64]
@@ -43,7 +43,7 @@ def compute_eacf(
     centre_frequency_uhz: float,
     filter_width_uhz: float,
     max_lag_seconds: float | None = None,
-    empirical_background: EmpiricalBackgroundConfig | None = None,
+    empirical_background: BackgroundConfig | None = None,
 ) -> tuple[FloatArray, FloatArray]:
     """Compute a normalised ACF of a frequency-filtered time series.
 
@@ -68,7 +68,7 @@ def compute_eacf(
 
 def _prepare_spectrum(
     series: TimeSeries,
-    empirical_background: EmpiricalBackgroundConfig | None,
+    empirical_background: BackgroundConfig | None,
 ) -> tuple[FloatArray, ComplexArray]:
     signal = np.zeros(series.time.size, dtype=float)
     observed_flux = series.flux[series.observed]
@@ -122,7 +122,7 @@ def compute_eacf_map(
     centre_frequencies_uhz: ArrayLike,
     filter_width_uhz: float,
     max_lag_seconds: float | None = None,
-    empirical_background: EmpiricalBackgroundConfig | None = None,
+    empirical_background: BackgroundConfig | None = None,
 ) -> EACFMap:
     """Evaluate the filtered ACF across trial filter-centre frequencies."""
 

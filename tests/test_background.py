@@ -2,7 +2,9 @@ import numpy as np
 
 from urdr import (
     EmpiricalBackgroundConfig,
+    HarveyBackgroundConfig,
     estimate_empirical_background,
+    estimate_harvey_background,
     whiten_spectrum,
 )
 
@@ -53,3 +55,22 @@ def test_whitening_preserves_fourier_phase() -> None:
     np.testing.assert_allclose(np.angle(whitened[1:]), phase[1:], atol=1e-12)
     assert np.all(np.isfinite(background))
     assert np.all(background > 0)
+
+
+def test_harvey_background_tracks_lorentzian_profile() -> None:
+    rng = np.random.default_rng(456)
+    frequency = np.linspace(0.0, 3000.0, 30_001)
+    expected = 2.0 + 50.0 / (1.0 + (frequency / 250.0) ** 2)
+    power = rng.exponential(expected)
+
+    estimated = estimate_harvey_background(
+        frequency,
+        power,
+        HarveyBackgroundConfig(anchors=120),
+    )
+
+    select = (frequency > 50.0) & (frequency < 2800.0)
+    median_fractional_error = np.median(
+        np.abs(estimated[select] / expected[select] - 1.0)
+    )
+    assert median_fractional_error < 0.15
