@@ -22,6 +22,8 @@ The current implementation provides:
   spectral-concentration veto;
 - piecewise variance, offset, and drift simulations with a calibrated
   campaign/sector-instability veto;
+- frequency-lag ridge morphology diagnostics with a signal-calibrated joint
+  check against coherent and segment-dependent hard negatives;
 - a lightweight adapter for correlated AsteroScale posterior samples.
 
 Skuld is deliberately not a dependency. This allows an AsteroScale-only Urdr
@@ -305,6 +307,39 @@ percentile is then calibrated to the requested signal-retention rate. This
 keeps the veto target-specific and avoids assuming that the three diagnostics
 are independent.
 
+## EACF ridge morphology
+
+The peak EACF statistic discards most of the frequency-lag map. Urdr can also
+measure whether a candidate forms a localised, continuous ridge near the
+AsteroScale-predicted envelope:
+
+```python
+from urdr import eacf_morphology
+
+eacf_map = compute_eacf_map(
+    series,
+    centres,
+    filter_width_uhz=400.0,
+    max_lag_seconds=2e6 / expected_delta_nu,
+)
+diagnostics = eacf_morphology(
+    eacf_map,
+    delta_nu_uhz=expected_delta_nu,
+    expected_numax_uhz=expected_numax,
+    envelope_width_uhz=expected_envelope_width,
+)
+```
+
+The diagnostics describe envelope localisation, connected ridge width and
+fill, contrast against neighbouring filter centres, roughness, and support near
+the second ACF peak. Their useful ranges depend on the target, observing
+window, filter grid, and S/N, so none is used as a universal cut.
+
+`benchmark_morphology_veto` learns a joint empirical outlier threshold from
+exact-window oscillator injections, then applies it to both coherent and
+segment-systematic hard negatives. The raw and accepted detection rates remain
+separate, making the signal cost of the morphology check explicit.
+
 ## Notebooks
 
 - [`notebooks/coherent_contaminants.ipynb`](notebooks/coherent_contaminants.ipynb)
@@ -316,6 +351,9 @@ are independent.
 - [`notebooks/segment_systematics.ipynb`](notebooks/segment_systematics.ipynb)
   injects campaign/sector variance, offset, and drift changes and benchmarks the
   calibrated instability veto.
+- [`notebooks/eacf_morphology.ipynb`](notebooks/eacf_morphology.ipynb)
+  visualises a frequency-lag ridge and benchmarks the joint morphology check
+  against coherent and segment-dependent hard negatives.
 
 All public APIs use NumPy-style docstrings. The documentation check can be run
 with:
