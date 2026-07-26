@@ -12,6 +12,9 @@ license = { text = "MIT" }
 authors = [{ name = "Martin B. Nielsen" }]
 dependencies = ["numpy>=1.23", "scipy>=1.9"]
 
+[project.scripts]
+urdr-tess-grid = "urdr.science:main"
+
 [project.optional-dependencies]
 test = ["pydocstyle>=6.3", "pytest>=7", "pytest-cov>=4"]
 
