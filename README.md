@@ -24,6 +24,9 @@ The current implementation provides:
   campaign/sector-instability veto;
 - frequency-lag ridge morphology diagnostics with a signal-calibrated joint
   check against coherent and segment-dependent hard negatives;
+- a single held-out-calibrated detector combining the EACF, spectral
+  concentration, segment stability, and ridge morphology without sequential
+  vetoes;
 - a lightweight adapter for correlated AsteroScale posterior samples.
 
 Skuld is deliberately not a dependency. This allows an AsteroScale-only Urdr
@@ -340,6 +343,68 @@ exact-window oscillator injections, then applies it to both coherent and
 segment-systematic hard negatives. The raw and accepted detection rates remain
 separate, making the signal cost of the morphology check explicit.
 
+## Joint inference
+
+The individual diagnostics are useful for understanding failure modes, but
+their vetoes should not be applied sequentially. For example, three separate
+95 per cent retention cuts need not retain 95 per cent of signals overall.
+`calibrate_joint_detector` instead learns one decision boundary from the EACF
+statistic and all twelve contaminant/morphology diagnostics:
+
+```python
+from urdr import (
+    CoherentSignalConfig,
+    SegmentSystematicConfig,
+    calibrate_joint_detector,
+)
+
+detector = calibrate_joint_detector(
+    window=series.window,
+    simulation=config,
+    centre_frequencies_uhz=centres,
+    filter_width_uhz=400.0,
+    delta_nu_grid_uhz=np.linspace(45.0, 65.0, 41),
+    segments_days=((0.0, 13.7), (13.7, 27.4)),
+    coherent_contaminants={
+        "single_line": CoherentSignalConfig(1000.0, 0.5),
+        "harmonic_comb": CoherentSignalConfig(333.3, 0.5, harmonics=3),
+    },
+    segment_systematics={
+        "variance_jump": [
+            SegmentSystematicConfig(13.7, 27.4, amplitude_scale=3.0)
+        ],
+    },
+    background=target_aware_background,
+    realizations=512,
+    validation_fraction=0.25,
+    target_false_positive_rate=0.01,
+    seed=42,
+)
+result = detector.detect(series)
+print(
+    result.detection_probability,
+    result.false_alarm_probability,
+    result.false_alarm_interval,
+    result.delta_nu_uhz,
+)
+```
+
+Paired realisations are split before fitting. The training subset learns a
+regularised linear discriminant, while the held-out subset calibrates its
+probability scale, false-alarm rate, uncertainty interval, and explanatory
+flags. Clean nulls and every represented contaminant class form one
+hard-negative hypothesis. The false-alarm calculation uses the most
+signal-like hard negative in each paired realisation, so adding contaminant
+classes does not artificially inflate the effective number of simulations.
+
+`diagnostic_flags` identify unusual spectral concentration, segment
+instability, or morphology. They explain a result but do not act as additional
+independent vetoes. `detector.validation` reports the held-out true-positive
+rate, family-wise false-positive rate, and Brier probability score.
+The calibration rejects a simulation count too small to resolve the requested
+false-positive rate; for example, a 1 per cent rate needs at least 100 held-out
+paired realisations.
+
 ## Notebooks
 
 - [`notebooks/coherent_contaminants.ipynb`](notebooks/coherent_contaminants.ipynb)
@@ -354,6 +419,9 @@ separate, making the signal cost of the morphology check explicit.
 - [`notebooks/eacf_morphology.ipynb`](notebooks/eacf_morphology.ipynb)
   visualises a frequency-lag ridge and benchmarks the joint morphology check
   against coherent and segment-dependent hard negatives.
+- [`notebooks/joint_inference.ipynb`](notebooks/joint_inference.ipynb)
+  fits the unified detector, runs it on a fresh injection, and inspects its
+  held-out probability and false-alarm calibration.
 
 All public APIs use NumPy-style docstrings. The documentation check can be run
 with:
