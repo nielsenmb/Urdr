@@ -1,0 +1,28 @@
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[project]
+name = "urdr"
+version = "0.1.0"
+description = "Window-aware evolution of the time-series EACF method"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Martin B. Nielsen" }]
+dependencies = ["numpy>=1.23", "scipy>=1.9"]
+
+[project.optional-dependencies]
+test = ["pytest>=7", "pytest-cov>=4"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/urdr"]
+
+[tool.pytest.ini_options]
+addopts = "-ra"
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py310"
+
