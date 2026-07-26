@@ -20,6 +20,8 @@ The current implementation provides:
   across S/N, seismic regime, and observing-window patterns;
 - harmonic spot/planet-like contaminant simulations and a target-calibrated
   spectral-concentration veto;
+- piecewise variance, offset, and drift simulations with a calibrated
+  campaign/sector-instability veto;
 - a lightweight adapter for correlated AsteroScale posterior samples.
 
 Skuld is deliberately not a dependency. This allows an AsteroScale-only Urdr
@@ -260,6 +262,49 @@ injections and every contaminant class. The exact observing mask is used in all
 arms, because aliases can broaden a coherent peak and change its apparent
 concentration.
 
+## Campaign and sector systematics
+
+Variance changes, offsets, and slow drifts between observing segments are
+represented explicitly rather than folded into a generic noise penalty:
+
+```python
+from urdr import (
+    SegmentSystematicConfig,
+    add_segment_systematics,
+    benchmark_segment_veto,
+    segment_diagnostics,
+)
+
+segments = ((0.0, 13.7), (13.7, 27.4))
+variance_jump = [
+    SegmentSystematicConfig(13.7, 27.4, amplitude_scale=3.0)
+]
+contaminated = add_segment_systematics(noise_series, variance_jump)
+diagnostics = segment_diagnostics(contaminated, segments)
+
+benchmark = benchmark_segment_veto(
+    window=series.window,
+    simulation=config,
+    systematics={"variance_jump": variance_jump},
+    segments_days=segments,
+    centre_frequencies_uhz=centres,
+    filter_width_uhz=400.0,
+    delta_nu_grid_uhz=np.linspace(45.0, 65.0, 41),
+    background=target_aware_background,
+    realizations=128,
+    target_false_positive_rate=0.01,
+    target_signal_retention=0.95,
+    seed=42,
+)
+```
+
+The diagnostic combines robust scale ratios, median shifts, and within-segment
+drifts. These quantities have different natural scales, so each is converted to
+an empirical percentile using exact-window signal injections. The maximum
+percentile is then calibrated to the requested signal-retention rate. This
+keeps the veto target-specific and avoids assuming that the three diagnostics
+are independent.
+
 ## Notebooks
 
 - [`notebooks/coherent_contaminants.ipynb`](notebooks/coherent_contaminants.ipynb)
@@ -268,6 +313,9 @@ concentration.
 - [`notebooks/empirical_background_grid.ipynb`](notebooks/empirical_background_grid.ipynb)
   calibrates \(a,b\) on paired simulations and evaluates the Pareto candidates
   on a held-out observing window.
+- [`notebooks/segment_systematics.ipynb`](notebooks/segment_systematics.ipynb)
+  injects campaign/sector variance, offset, and drift changes and benchmarks the
+  calibrated instability veto.
 
 All public APIs use NumPy-style docstrings. The documentation check can be run
 with:
