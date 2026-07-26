@@ -8,9 +8,11 @@ import numpy as np
 from numpy.typing import ArrayLike, NDArray
 from scipy.signal.windows import tukey
 
+from .background import EmpiricalBackgroundConfig, whiten_spectrum
 from .models import TimeSeries
 
 FloatArray = NDArray[np.float64]
+ComplexArray = NDArray[np.complex128]
 
 
 @dataclass(frozen=True)
@@ -41,40 +43,73 @@ def compute_eacf(
     centre_frequency_uhz: float,
     filter_width_uhz: float,
     max_lag_seconds: float | None = None,
+    empirical_background: EmpiricalBackgroundConfig | None = None,
 ) -> tuple[FloatArray, FloatArray]:
     """Compute a normalised ACF of a frequency-filtered time series.
 
     A Tukey bandpass is applied in the Fourier domain. Missing cadences are
     zero-filled only after robust centring and the pair count at every lag is used
-    to correct the resulting autocorrelation.
+    to correct the resulting autocorrelation. If ``empirical_background`` is
+    supplied, the complex spectrum is whitened before applying the bandpass.
     """
 
     if centre_frequency_uhz <= 0 or filter_width_uhz <= 0:
         raise ValueError("filter centre and width must be positive")
+    frequencies_uhz, spectrum = _prepare_spectrum(series, empirical_background)
+    return _compute_from_spectrum(
+        series,
+        frequencies_uhz,
+        spectrum,
+        centre_frequency_uhz,
+        filter_width_uhz,
+        max_lag_seconds,
+    )
+
+
+def _prepare_spectrum(
+    series: TimeSeries,
+    empirical_background: EmpiricalBackgroundConfig | None,
+) -> tuple[FloatArray, ComplexArray]:
     signal = np.zeros(series.time.size, dtype=float)
     observed_flux = series.flux[series.observed]
     signal[series.observed] = observed_flux - np.median(observed_flux)
 
-    frequencies_hz = np.fft.rfftfreq(signal.size, d=series.cadence_seconds)
-    taper = _frequency_taper(
-        frequencies_hz * 1e6, centre_frequency_uhz, filter_width_uhz
+    frequencies_uhz = (
+        np.fft.rfftfreq(signal.size, d=series.cadence_seconds) * 1e6
     )
-    filtered = np.fft.irfft(np.fft.rfft(signal) * taper, n=signal.size)
+    spectrum = np.fft.rfft(signal)
+    if empirical_background is not None:
+        spectrum, _ = whiten_spectrum(frequencies_uhz, spectrum, empirical_background)
+    return frequencies_uhz, np.asarray(spectrum, dtype=complex)
+
+
+def _compute_from_spectrum(
+    series: TimeSeries,
+    frequencies_uhz: FloatArray,
+    spectrum: ComplexArray,
+    centre_frequency_uhz: float,
+    filter_width_uhz: float,
+    max_lag_seconds: float | None,
+) -> tuple[FloatArray, FloatArray]:
+    taper = _frequency_taper(
+        frequencies_uhz, centre_frequency_uhz, filter_width_uhz
+    )
+    filtered = np.fft.irfft(spectrum * taper, n=series.time.size)
     filtered[~series.observed] = 0.0
 
-    raw = np.correlate(filtered, filtered, mode="full")[signal.size - 1 :]
+    raw = np.correlate(filtered, filtered, mode="full")[series.time.size - 1 :]
     pairs = np.correlate(
         series.observed.astype(float),
         series.observed.astype(float),
         mode="full",
-    )[signal.size - 1 :]
+    )[series.time.size - 1 :]
     valid = pairs > 0
     acovariance = np.zeros_like(raw)
     acovariance[valid] = raw[valid] / pairs[valid]
     if acovariance[0] <= 0:
         raise ValueError("filtered time series has zero variance")
     values = np.square(acovariance / acovariance[0])
-    lags = np.arange(signal.size, dtype=float) * series.cadence_seconds
+    lags = np.arange(series.time.size, dtype=float) * series.cadence_seconds
 
     if max_lag_seconds is not None:
         keep = lags <= max_lag_seconds
@@ -87,17 +122,24 @@ def compute_eacf_map(
     centre_frequencies_uhz: ArrayLike,
     filter_width_uhz: float,
     max_lag_seconds: float | None = None,
+    empirical_background: EmpiricalBackgroundConfig | None = None,
 ) -> EACFMap:
     """Evaluate the filtered ACF across trial filter-centre frequencies."""
 
     centres = np.atleast_1d(np.asarray(centre_frequencies_uhz, dtype=float))
     if centres.ndim != 1 or centres.size == 0:
         raise ValueError("at least one filter centre is required")
+    frequencies_uhz, spectrum = _prepare_spectrum(series, empirical_background)
     rows = []
     lags = None
     for centre in centres:
-        lags, values = compute_eacf(
-            series, float(centre), filter_width_uhz, max_lag_seconds
+        lags, values = _compute_from_spectrum(
+            series,
+            frequencies_uhz,
+            spectrum,
+            float(centre),
+            filter_width_uhz,
+            max_lag_seconds,
         )
         rows.append(values)
     assert lags is not None
@@ -118,4 +160,3 @@ def _frequency_taper(
         raise ValueError("filter contains fewer than three Fourier bins")
     weights[inside] = tukey(count, alpha=0.5)
     return weights
-

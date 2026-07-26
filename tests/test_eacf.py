@@ -1,6 +1,11 @@
 import numpy as np
 
-from urdr import SimulationConfig, TimeSeries, compute_eacf_map
+from urdr import (
+    EmpiricalBackgroundConfig,
+    SimulationConfig,
+    TimeSeries,
+    compute_eacf_map,
+)
 from urdr.simulation import simulate_time_series
 
 
@@ -44,3 +49,27 @@ def test_eacf_map_shape() -> None:
     result = compute_eacf_map(series, [800.0, 1000.0], 400.0, 5000.0)
     assert result.values.shape == (2, result.lags_seconds.size)
 
+
+def test_eacf_accepts_target_aware_empirical_background() -> None:
+    template = _template(1024)
+    config = SimulationConfig(
+        white_noise_sigma=0.2,
+        granulation_amplitude=1.0,
+        granulation_timescale_days=0.2,
+        numax_uhz=1000.0,
+        delta_nu_uhz=100.0,
+        envelope_width_uhz=350.0,
+        oscillation_amplitude=1.0,
+    )
+    series = simulate_time_series(
+        template.window, config, np.random.default_rng(6)
+    )
+    background = EmpiricalBackgroundConfig.excluding_envelope(1000.0, 350.0)
+    result = compute_eacf_map(
+        series,
+        [900.0, 1000.0, 1100.0],
+        500.0,
+        max_lag_seconds=20_000.0,
+        empirical_background=background,
+    )
+    assert np.all(np.isfinite(result.values))
