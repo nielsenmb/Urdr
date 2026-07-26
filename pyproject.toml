@@ -13,7 +13,7 @@ authors = [{ name = "Martin B. Nielsen" }]
 dependencies = ["numpy>=1.23", "scipy>=1.9"]
 
 [project.optional-dependencies]
-test = ["pytest>=7", "pytest-cov>=4"]
+test = ["pydocstyle>=6.3", "pytest>=7", "pytest-cov>=4"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/urdr"]
@@ -26,3 +26,5 @@ testpaths = ["tests"]
 line-length = 88
 target-version = "py310"
 
+[tool.pydocstyle]
+convention = "numpy"
