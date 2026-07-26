@@ -20,6 +20,21 @@ class EmpiricalBackgroundConfig:
     exclusion centre and width prevents a predicted oscillation envelope from
     contributing to the running medians; the background is interpolated across
     that region.
+
+    Parameters
+    ----------
+    a
+        Scale coefficient for the local frequency half-width.
+    b
+        Power-law exponent for the local frequency half-width.
+    anchors
+        Number of log-spaced background anchors.
+    minimum_bins
+        Minimum bins required by each local estimate.
+    exclude_centre_uhz
+        Optional centre of an excluded oscillation envelope.
+    exclude_width_uhz
+        Optional full width of the excluded envelope.
     """
 
     a: float = 0.66
@@ -30,6 +45,7 @@ class EmpiricalBackgroundConfig:
     exclude_width_uhz: float | None = None
 
     def __post_init__(self) -> None:
+        """Validate the empirical-background configuration."""
         if self.a <= 0 or self.b <= 0:
             raise ValueError("a and b must be positive")
         if self.anchors < 4:
@@ -54,8 +70,22 @@ class EmpiricalBackgroundConfig:
         envelope_width_uhz: float,
         **kwargs: float | int,
     ) -> "EmpiricalBackgroundConfig":
-        """Create a target-aware configuration from seismic predictions."""
+        """Create a target-aware configuration from seismic predictions.
 
+        Parameters
+        ----------
+        numax_uhz
+            Predicted oscillation-envelope centre in microhertz.
+        envelope_width_uhz
+            Predicted full envelope width in microhertz.
+        **kwargs
+            Additional configuration values.
+
+        Returns
+        -------
+        EmpiricalBackgroundConfig
+            Configuration excluding the predicted envelope.
+        """
         return cls(
             exclude_centre_uhz=numax_uhz,
             exclude_width_uhz=envelope_width_uhz,
@@ -70,6 +100,19 @@ class HarveyBackgroundConfig:
     The model is ``white + amplitude / (1 + (frequency / knee)**exponent)``.
     It is deliberately a simple physical baseline against which the empirical
     running-median treatment can be compared.
+
+    Parameters
+    ----------
+    exponent
+        Fixed power-law exponent of the fitted Harvey-like profile.
+    anchors
+        Number of log-spaced robust background anchors.
+    minimum_bins
+        Minimum bins required by each anchor.
+    exclude_centre_uhz
+        Optional centre of an excluded oscillation envelope.
+    exclude_width_uhz
+        Optional full width of the excluded envelope.
     """
 
     exponent: float = 2.0
@@ -79,6 +122,7 @@ class HarveyBackgroundConfig:
     exclude_width_uhz: float | None = None
 
     def __post_init__(self) -> None:
+        """Validate the Harvey-like background configuration."""
         if self.exponent <= 0:
             raise ValueError("exponent must be positive")
         if self.anchors < 4:
@@ -103,8 +147,22 @@ class HarveyBackgroundConfig:
         envelope_width_uhz: float,
         **kwargs: float | int,
     ) -> "HarveyBackgroundConfig":
-        """Create a target-aware physical-background configuration."""
+        """Create a target-aware physical-background configuration.
 
+        Parameters
+        ----------
+        numax_uhz
+            Predicted oscillation-envelope centre in microhertz.
+        envelope_width_uhz
+            Predicted full envelope width in microhertz.
+        **kwargs
+            Additional configuration values.
+
+        Returns
+        -------
+        HarveyBackgroundConfig
+            Configuration excluding the predicted envelope.
+        """
         return cls(
             exclude_centre_uhz=numax_uhz,
             exclude_width_uhz=envelope_width_uhz,
@@ -125,8 +183,21 @@ def estimate_empirical_background(
     Dividing each median by ``log(2)`` converts the median of an exponentially
     distributed periodogram into an estimate of its mean. The value at zero
     frequency is copied from the lowest positive-frequency estimate.
-    """
 
+    Parameters
+    ----------
+    frequency_uhz
+        Strictly increasing frequency grid in microhertz.
+    power
+        Periodogram power on the frequency grid.
+    config
+        Optional empirical-background configuration.
+
+    Returns
+    -------
+    numpy.ndarray
+        Estimated mean background power on the input grid.
+    """
     settings = config or EmpiricalBackgroundConfig()
     frequency = np.asarray(frequency_uhz, dtype=float)
     psd = np.asarray(power, dtype=float)
@@ -175,8 +246,22 @@ def estimate_harvey_background(
     power: ArrayLike,
     config: HarveyBackgroundConfig | None = None,
 ) -> FloatArray:
-    """Fit a one-component Harvey-like profile to robust PSD anchors."""
+    """Fit a one-component Harvey-like profile to robust PSD anchors.
 
+    Parameters
+    ----------
+    frequency_uhz
+        Strictly increasing frequency grid in microhertz.
+    power
+        Periodogram power on the frequency grid.
+    config
+        Optional Harvey-like background configuration.
+
+    Returns
+    -------
+    numpy.ndarray
+        Fitted background power on the input grid.
+    """
     settings = config or HarveyBackgroundConfig()
     frequency, psd = _validate_spectrum(
         frequency_uhz, power, settings.minimum_bins
@@ -239,8 +324,22 @@ def estimate_background(
     power: ArrayLike,
     config: BackgroundConfig,
 ) -> FloatArray:
-    """Estimate a PSD background using the requested comparison arm."""
+    """Estimate a PSD background using the requested comparison arm.
 
+    Parameters
+    ----------
+    frequency_uhz
+        Strictly increasing frequency grid in microhertz.
+    power
+        Periodogram power on the frequency grid.
+    config
+        Empirical or Harvey-like background configuration.
+
+    Returns
+    -------
+    numpy.ndarray
+        Estimated background power on the input grid.
+    """
     if isinstance(config, EmpiricalBackgroundConfig):
         return estimate_empirical_background(frequency_uhz, power, config)
     if isinstance(config, HarveyBackgroundConfig):
@@ -253,8 +352,24 @@ def whiten_spectrum(
     spectrum: ArrayLike,
     config: BackgroundConfig | None = None,
 ) -> tuple[ComplexArray, FloatArray]:
-    """Flatten a complex Fourier spectrum while retaining its phases."""
+    """Flatten a complex Fourier spectrum while retaining its phases.
 
+    Parameters
+    ----------
+    frequency_uhz
+        Strictly increasing frequency grid in microhertz.
+    spectrum
+        Complex Fourier spectrum.
+    config
+        Optional empirical or Harvey-like background configuration.
+
+    Returns
+    -------
+    whitened
+        Whitened complex Fourier spectrum.
+    background
+        Estimated background power on the input grid.
+    """
     complex_spectrum = np.asarray(spectrum, dtype=complex)
     settings = config or EmpiricalBackgroundConfig()
     background = estimate_background(
