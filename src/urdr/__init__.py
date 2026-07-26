@@ -36,6 +36,14 @@ from .grid import (
     make_observing_window,
 )
 from .models import AsteroScaleSamples, ObservingWindow, SearchRegion, TimeSeries
+from .joint import (
+    DetectionResult,
+    JointDetector,
+    JointDiagnostics,
+    JointValidationMetrics,
+    calibrate_joint_detector,
+    joint_diagnostics,
+)
 from .morphology import (
     MorphologyDiagnostics,
     MorphologyVetoMetrics,
@@ -62,6 +70,7 @@ __all__ = [
     "CoherenceDiagnostics",
     "CoherentSignalConfig",
     "CoherentVetoMetrics",
+    "DetectionResult",
     "EACFMap",
     "EmpiricalBackgroundConfig",
     "EmpiricalGridBenchmark",
@@ -69,6 +78,9 @@ __all__ = [
     "EmpiricalGridPoint",
     "EmpiricalGridSummary",
     "HarveyBackgroundConfig",
+    "JointDetector",
+    "JointDiagnostics",
+    "JointValidationMetrics",
     "MorphologyDiagnostics",
     "MorphologyVetoMetrics",
     "ObservingWindow",
@@ -86,6 +98,7 @@ __all__ = [
     "benchmark_empirical_grid",
     "benchmark_morphology_veto",
     "benchmark_segment_veto",
+    "calibrate_joint_detector",
     "coherence_diagnostics",
     "compute_eacf",
     "compute_eacf_map",
@@ -95,6 +108,7 @@ __all__ = [
     "estimate_empirical_background",
     "estimate_harvey_background",
     "eacf_morphology",
+    "joint_diagnostics",
     "make_observing_window",
     "segment_diagnostics",
     "simulate_time_series",
