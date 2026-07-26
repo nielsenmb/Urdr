@@ -36,6 +36,12 @@ from .grid import (
     make_observing_window,
 )
 from .models import AsteroScaleSamples, ObservingWindow, SearchRegion, TimeSeries
+from .morphology import (
+    MorphologyDiagnostics,
+    MorphologyVetoMetrics,
+    benchmark_morphology_veto,
+    eacf_morphology,
+)
 from .simulation import SimulationConfig, simulate_time_series
 from .systematics import (
     SegmentDiagnostics,
@@ -63,6 +69,8 @@ __all__ = [
     "EmpiricalGridPoint",
     "EmpiricalGridSummary",
     "HarveyBackgroundConfig",
+    "MorphologyDiagnostics",
+    "MorphologyVetoMetrics",
     "ObservingWindow",
     "SearchRegion",
     "SegmentDiagnostics",
@@ -76,6 +84,7 @@ __all__ = [
     "benchmark_background_treatments",
     "benchmark_coherent_veto",
     "benchmark_empirical_grid",
+    "benchmark_morphology_veto",
     "benchmark_segment_veto",
     "coherence_diagnostics",
     "compute_eacf",
@@ -85,6 +94,7 @@ __all__ = [
     "estimate_delta_nu",
     "estimate_empirical_background",
     "estimate_harvey_background",
+    "eacf_morphology",
     "make_observing_window",
     "segment_diagnostics",
     "simulate_time_series",
