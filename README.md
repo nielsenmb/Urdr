@@ -29,6 +29,8 @@ The current implementation provides:
   vetoes;
 - pre-registered, checkpointed synthetic experiments with deterministic
   multiprocessing and machine-readable result tables;
+- a frozen targeted TESS v1 grid with held-out regimes, matching empirical
+  background cases, and post-run calibration assessments;
 - a lightweight adapter for correlated AsteroScale posterior samples.
 
 Skuld is deliberately not a dependency. This allows an AsteroScale-only Urdr
@@ -78,6 +80,53 @@ The experiment grid should explicitly cross evolutionary regime, oscillation
 S/N, observing duration, duty cycle or gap pattern, and contaminant strength.
 Training and validation cells remain labelled through `ValidationCase.split`.
 See `notebooks/scientific_experiment.ipynb` for a small executable example.
+
+### Frozen TESS v1 grid
+
+`make_tess_scientific_grid` supplies the first production design. It contains
+nine targeted cells rather than a full Cartesian product:
+
+| Split | Regime | Signal/window combinations |
+|---|---|---|
+| Training | Red giant | low/one sector, high/three sectors |
+| Training | Subgiant | low/three sectors, high/one sector |
+| Training | Main sequence | low/one sector |
+| Validation | Red giant | low/sparse sector |
+| Validation | Subgiant | high/sparse three sectors |
+| Validation | Main sequence | low/three sectors, high/CVZ-like |
+
+The exact random masks, sector gaps, simulation settings, contaminant
+strengths, and split labels are deterministic and included in the experiment
+fingerprint. The CVZ-like cell is held out because it is both scientifically
+important and the most computationally expensive.
+
+```python
+from urdr import make_tess_scientific_grid, run_synthetic_experiment
+
+grid = make_tess_scientific_grid()
+run = run_synthetic_experiment(
+    grid.validation_plan,
+    "results/tess-synthetic-v1",
+    workers=8,
+    resume=True,
+)
+```
+
+The equivalent command-line entry point is convenient on a compute node:
+
+```bash
+urdr-tess-grid --dry-run
+urdr-tess-grid results/tess-synthetic-v1 --workers 8
+```
+
+The same object provides nine matching `BackgroundBenchmarkCase` objects and
+the pre-registered \(3\times3\) candidate set around the legacy
+\(a=0.66,\ b=0.88\) law. After that benchmark, use
+`assess_background_calibration` to test whether any training-frontier
+candidate also survives the held-out and regime-specific Pareto frontiers.
+`assess_validation` separately reports signal detection, \(\Delta\nu\)
+recovery, worst hard-negative rate, Brier score, and expected calibration
+error. No single score combines discrimination and probability calibration.
 
 ## Installation
 
@@ -517,6 +566,9 @@ library.
 - [`notebooks/synthetic_validation.ipynb`](notebooks/synthetic_validation.ipynb)
   compares all three detection methods on a small pre-registered matrix and
   inspects reliability without conflating it with detection performance.
+- [`notebooks/tess_scientific_grid.ipynb`](notebooks/tess_scientific_grid.ipynb)
+  inspects the frozen production grid, its exact manifest, and the post-run
+  decision APIs before launching an expensive experiment.
 
 All public APIs use NumPy-style docstrings. The documentation check can be run
 with:
