@@ -26,6 +26,11 @@ from .contaminants import (
     coherence_diagnostics,
 )
 from .eacf import EACFMap, compute_eacf, compute_eacf_map
+from .experiment import (
+    ExperimentRun,
+    SyntheticExperimentPlan,
+    run_synthetic_experiment,
+)
 from .grid import (
     BackgroundBenchmarkCase,
     EmpiricalGridBenchmark,
@@ -84,6 +89,7 @@ __all__ = [
     "EmpiricalGridMetric",
     "EmpiricalGridPoint",
     "EmpiricalGridSummary",
+    "ExperimentRun",
     "HarveyBackgroundConfig",
     "JointDetector",
     "JointDiagnostics",
@@ -99,6 +105,7 @@ __all__ = [
     "SimulationCalibrator",
     "SimulationConfig",
     "SyntheticValidation",
+    "SyntheticExperimentPlan",
     "TimeSeries",
     "ValidationCase",
     "ValidationMetric",
@@ -122,6 +129,7 @@ __all__ = [
     "eacf_morphology",
     "joint_diagnostics",
     "make_observing_window",
+    "run_synthetic_experiment",
     "segment_diagnostics",
     "simulate_time_series",
     "whiten_spectrum",
