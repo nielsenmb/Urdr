@@ -100,6 +100,12 @@ strengths, and split labels are deterministic and included in the experiment
 fingerprint. The CVZ-like cell is held out because it is both scientifically
 important and the most computationally expensive.
 
+The production manifest includes enough lag coverage for the second ACF peak
+at every registered trial \(\Delta\nu\). Use a new output directory if you
+created a dry-run manifest before this full-grid lag correction; the
+fingerprint mismatch is intentional and prevents incompatible checkpoints from
+being combined.
+
 ```python
 from urdr import make_tess_scientific_grid, run_synthetic_experiment
 
@@ -118,6 +124,12 @@ The equivalent command-line entry point is convenient on a compute node:
 urdr-tess-grid --dry-run
 urdr-tess-grid results/tess-synthetic-v1 --workers 8
 ```
+
+EACF autocorrelations use zero-padded FFTs and reuse the observing-window pair
+counts across filter centres. This keeps long multi-sector and CVZ-like cases
+at approximately \(N\log N\), rather than quadratic, scaling with cadence
+count. Production runs remain simulation-heavy and should still use the
+checkpointed command on a compute node.
 
 The same object provides nine matching `BackgroundBenchmarkCase` objects and
 the pre-registered \(3\times3\) candidate set around the legacy

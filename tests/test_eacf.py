@@ -1,11 +1,34 @@
 import numpy as np
 
+import urdr.eacf as eacf
 from urdr import (
     EmpiricalBackgroundConfig,
     SimulationConfig,
     TimeSeries,
     compute_eacf_map,
 )
+
+
+def test_fft_autocorrelation_matches_direct_linear_result() -> None:
+    """FFT correlation should preserve the original linear statistic."""
+    rng = np.random.default_rng(123)
+    values = rng.normal(size=257)
+
+    expected = np.correlate(values, values, mode="full")[values.size - 1 :]
+    actual = eacf._nonnegative_autocorrelation(values)
+
+    np.testing.assert_allclose(actual, expected, rtol=1e-12, atol=1e-12)
+
+
+def test_fft_autocorrelation_rejects_invalid_input() -> None:
+    """The internal FFT helper should fail clearly for malformed arrays."""
+    for values in (np.array([]), np.ones((2, 2))):
+        try:
+            eacf._nonnegative_autocorrelation(values)
+        except ValueError as error:
+            assert "non-empty 1D" in str(error)
+        else:
+            raise AssertionError("invalid autocorrelation input should fail")
 from urdr.simulation import simulate_time_series
 
 

@@ -50,9 +50,22 @@ def test_tess_v1_design_fingerprint_is_frozen() -> None:
     )
 
     assert grid.validation_plan.fingerprint == (
-        "35f2639b965b4405b0797065bf544d68e"
-        "b3eecc8587bec2ebe4a6a2a8eb85462"
+        "27a39e86f6d850004946c447759a613b"
+        "69442394b193ba9bb789f0063b12de67"
     )
+
+
+def test_tess_grid_covers_second_peak_for_every_trial_separation() -> None:
+    """Every registered map should cover the second peak at its smallest dnu."""
+    grid = make_tess_scientific_grid(
+        calibration_realizations=16,
+        evaluation_realizations=4,
+    )
+
+    for case in grid.validation_plan.cases:
+        required = 2e6 / float(np.min(case.delta_nu_grid_uhz))
+        assert case.max_lag_seconds is not None
+        assert case.max_lag_seconds >= required
 
 
 def test_validation_assessment_keeps_calibration_separate() -> None:

@@ -588,6 +588,11 @@ def _make_validation_case(
             ),
         ),
     }
+    delta_nu_grid = np.linspace(
+        0.8 * design.delta_nu_uhz,
+        1.2 * design.delta_nu_uhz,
+        41,
+    )
     return ValidationCase(
         name=design.name,
         split=design.split,
@@ -596,18 +601,14 @@ def _make_validation_case(
         published_centres_uhz=published,
         restricted_centres_uhz=restricted,
         filter_width_uhz=design.envelope_width_uhz,
-        delta_nu_grid_uhz=np.linspace(
-            0.8 * design.delta_nu_uhz,
-            1.2 * design.delta_nu_uhz,
-            41,
-        ),
+        delta_nu_grid_uhz=delta_nu_grid,
         segments_days=segments,
         coherent_contaminants=contaminants,
         segment_systematics=systematics,
         background=EmpiricalBackgroundConfig.excluding_envelope(
             design.numax_uhz, design.envelope_width_uhz
         ),
-        max_lag_seconds=2.2e6 / design.delta_nu_uhz,
+        max_lag_seconds=2.2e6 / float(np.min(delta_nu_grid)),
     )
 
 

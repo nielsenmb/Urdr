@@ -6,6 +6,7 @@ from dataclasses import dataclass
 
 import numpy as np
 from numpy.typing import ArrayLike, NDArray
+from scipy.fft import next_fast_len
 from scipy.signal.windows import tukey
 
 from .background import BackgroundConfig, whiten_spectrum
@@ -131,6 +132,7 @@ def _compute_from_spectrum(
     centre_frequency_uhz: float,
     filter_width_uhz: float,
     max_lag_seconds: float | None,
+    pair_counts: FloatArray | None = None,
 ) -> tuple[FloatArray, FloatArray]:
     taper = _frequency_taper(
         frequencies_uhz, centre_frequency_uhz, filter_width_uhz
@@ -138,15 +140,14 @@ def _compute_from_spectrum(
     filtered = np.fft.irfft(spectrum * taper, n=series.time.size)
     filtered[~series.observed] = 0.0
 
-    raw = np.correlate(filtered, filtered, mode="full")[series.time.size - 1 :]
-    pairs = np.correlate(
-        series.observed.astype(float),
-        series.observed.astype(float),
-        mode="full",
-    )[series.time.size - 1 :]
-    valid = pairs > 0
+    raw = _nonnegative_autocorrelation(filtered)
+    if pair_counts is None:
+        pair_counts = _nonnegative_autocorrelation(
+            series.observed.astype(float)
+        )
+    valid = pair_counts > 0
     acovariance = np.zeros_like(raw)
-    acovariance[valid] = raw[valid] / pairs[valid]
+    acovariance[valid] = raw[valid] / pair_counts[valid]
     if acovariance[0] <= 0:
         raise ValueError("filtered time series has zero variance")
     values = np.square(acovariance / acovariance[0])
@@ -189,6 +190,7 @@ def compute_eacf_map(
     if centres.ndim != 1 or centres.size == 0:
         raise ValueError("at least one filter centre is required")
     frequencies_uhz, spectrum = _prepare_spectrum(series, empirical_background)
+    pair_counts = _nonnegative_autocorrelation(series.observed.astype(float))
     rows = []
     lags = None
     for centre in centres:
@@ -199,10 +201,42 @@ def compute_eacf_map(
             float(centre),
             filter_width_uhz,
             max_lag_seconds,
+            pair_counts,
         )
         rows.append(values)
     assert lags is not None
     return EACFMap(centres, lags, np.vstack(rows))
+
+
+def _nonnegative_autocorrelation(values: FloatArray) -> FloatArray:
+    """Return the linear autocorrelation at non-negative lags using FFTs.
+
+    Parameters
+    ----------
+    values
+        One-dimensional real-valued sequence.
+
+    Returns
+    -------
+    numpy.ndarray
+        Linear autocorrelation for lags zero through ``len(values) - 1``.
+
+    Notes
+    -----
+    Zero-padding to at least ``2 * n - 1`` samples prevents the circular
+    wraparound that an unpadded FFT would introduce. Tiny round-off errors are
+    expected relative to the direct quadratic-time correlation.
+    """
+    array = np.asarray(values, dtype=float)
+    if array.ndim != 1 or array.size == 0:
+        raise ValueError("autocorrelation input must be a non-empty 1D array")
+    transform_size = next_fast_len(2 * array.size - 1)
+    spectrum = np.fft.rfft(array, n=transform_size)
+    correlation = np.fft.irfft(
+        spectrum * np.conjugate(spectrum),
+        n=transform_size,
+    )
+    return np.asarray(correlation[: array.size], dtype=float)
 
 
 def _frequency_taper(
