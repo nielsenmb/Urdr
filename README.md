@@ -6,7 +6,7 @@ function (EACF) method used in Atropos and described by
 It is intended to detect solar-like oscillations while making the effects of
 gaps, low-frequency variability, and target-specific noise explicit.
 
-This first milestone provides:
+The current implementation provides:
 
 - a frequency-filtered time-series ACF and frequency-lag map;
 - explicit `TimeSeries` and `ObservingWindow` models;
@@ -16,6 +16,8 @@ This first milestone provides:
   AsteroScale-informed high-S/N safeguard;
 - a paired benchmark for no removal, legacy empirical whitening,
   target-aware empirical whitening, and a fitted Harvey-like baseline;
+- harmonic spot/planet-like contaminant simulations and a target-calibrated
+  spectral-concentration veto;
 - a lightweight adapter for correlated AsteroScale posterior samples.
 
 Skuld is deliberately not a dependency. This allows an AsteroScale-only Urdr
@@ -109,10 +111,6 @@ search_region = samples.search_region()
 simulation_parameters = samples.median_parameters()
 ```
 
-The next milestone will benchmark the unchanged published decision statistic
-against the AsteroScale-restricted and window-calibrated configurations before
-adding richer EACF morphology or coherent-signal vetoes.
-
 ## Background-treatment benchmark
 
 The background arms can be compared at a common false-positive rate while
@@ -139,3 +137,82 @@ derived independently from its own exact-window null distribution, avoiding an
 unfair comparison caused by different statistic scales. The Harvey-like arm is
 a deliberately simple fitted reference model, not a claim that a single Harvey
 component describes real granulation perfectly.
+
+## Coherent-signal diagnostics
+
+Spot modulation, planet-like periodic variability, and narrow instrumental
+signals can produce strong autocorrelation while concentrating their Fourier
+power into relatively few bins. Urdr represents these hard negatives with
+`CoherentSignalConfig` and measures three complementary diagnostics in the
+candidate oscillation band:
+
+- maximum single-bin power fraction;
+- effective number of occupied Fourier bins;
+- normalised spectral entropy.
+
+```python
+from urdr import (
+    CoherentSignalConfig,
+    add_coherent_signal,
+    coherence_diagnostics,
+)
+
+contaminated = add_coherent_signal(
+    noise_series,
+    CoherentSignalConfig(
+        frequency_uhz=1000.0,
+        amplitude=0.5,
+        harmonics=3,
+    ),
+    np.random.default_rng(12),
+)
+diagnostics = coherence_diagnostics(
+    contaminated,
+    centre_frequency_uhz=1000.0,
+    filter_width_uhz=400.0,
+    background=target_aware_background,
+)
+```
+
+The veto threshold is not a universal hard-coded cut. It is calibrated from
+window-aware signal injections at a requested signal-retention rate, while the
+EACF threshold remains independently calibrated from the clean null:
+
+```python
+from urdr import benchmark_coherent_veto
+
+veto = benchmark_coherent_veto(
+    window=series.window,
+    simulation=config,
+    contaminants={
+        "single_line": CoherentSignalConfig(1000.0, 0.5),
+        "three_harmonics": CoherentSignalConfig(333.3, 0.5, harmonics=3),
+    },
+    centre_frequencies_uhz=centres,
+    filter_width_uhz=400.0,
+    delta_nu_grid_uhz=np.linspace(45.0, 65.0, 41),
+    background=target_aware_background,
+    realizations=128,
+    target_false_positive_rate=0.01,
+    target_signal_retention=0.95,
+    seed=42,
+)
+```
+
+This reports raw and vetoed detection rates separately for the signal
+injections and every contaminant class. The exact observing mask is used in all
+arms, because aliases can broaden a coherent peak and change its apparent
+concentration.
+
+## Notebooks
+
+- [`notebooks/coherent_contaminants.ipynb`](notebooks/coherent_contaminants.ipynb)
+  introduces harmonic contaminants, inspects the concentration diagnostics, and
+  runs a small reproducible veto benchmark.
+
+All public APIs use NumPy-style docstrings. The documentation check can be run
+with:
+
+```bash
+pydocstyle src/urdr
+```
