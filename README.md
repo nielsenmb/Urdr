@@ -27,11 +27,57 @@ The current implementation provides:
 - a single held-out-calibrated detector combining the EACF, spectral
   concentration, segment stability, and ridge morphology without sequential
   vetoes;
+- pre-registered, checkpointed synthetic experiments with deterministic
+  multiprocessing and machine-readable result tables;
 - a lightweight adapter for correlated AsteroScale posterior samples.
 
 Skuld is deliberately not a dependency. This allows an AsteroScale-only Urdr
 baseline to be compared fairly with an optional experiment in which Skuld
 localises the oscillation envelope.
+
+## Scientific-scale synthetic experiments
+
+`SyntheticExperimentPlan` freezes the complete validation design before the
+first simulation is run. The saved manifest includes every target and
+contaminant setting plus SHA-256 hashes of the exact cadence grids and observing
+masks. Reusing an output directory with a changed design raises an error rather
+than mixing incompatible results.
+
+```python
+from urdr import SyntheticExperimentPlan, run_synthetic_experiment
+
+plan = SyntheticExperimentPlan(
+    name="tess-synthetic-v1",
+    cases=tuple(preregistered_cases),
+    calibration_realizations=4096,
+    evaluation_realizations=2048,
+    target_false_positive_rate=0.01,
+    seed=20260726,
+)
+run = run_synthetic_experiment(
+    plan,
+    "results/tess-synthetic-v1",
+    workers=8,
+    resume=True,
+)
+print(run.metrics_path, run.reliability_path)
+```
+
+Each validation case is an independent job with a deterministic seed derived
+from the root seed and case name. Results are therefore unchanged by worker
+count or completion order. Successful jobs are atomically checkpointed and
+reused after interruption. The output directory contains:
+
+- `manifest.json`: the immutable pre-registration and its fingerprint;
+- `checkpoints/*.json`: one complete result per regime cell;
+- `metrics.csv`: class-resolved detection, false-positive, \(\Delta\nu\)
+  recovery, and Brier metrics;
+- `reliability.csv`: probability calibration bins.
+
+The experiment grid should explicitly cross evolutionary regime, oscillation
+S/N, observing duration, duty cycle or gap pattern, and contaminant strength.
+Training and validation cells remain labelled through `ValidationCase.split`.
+See `notebooks/scientific_experiment.ipynb` for a small executable example.
 
 ## Installation
 
