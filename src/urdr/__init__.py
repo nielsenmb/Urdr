@@ -37,6 +37,14 @@ from .grid import (
 )
 from .models import AsteroScaleSamples, ObservingWindow, SearchRegion, TimeSeries
 from .simulation import SimulationConfig, simulate_time_series
+from .systematics import (
+    SegmentDiagnostics,
+    SegmentSystematicConfig,
+    SegmentVetoMetrics,
+    add_segment_systematics,
+    benchmark_segment_veto,
+    segment_diagnostics,
+)
 
 __all__ = [
     "AsteroScaleSamples",
@@ -57,13 +65,18 @@ __all__ = [
     "HarveyBackgroundConfig",
     "ObservingWindow",
     "SearchRegion",
+    "SegmentDiagnostics",
+    "SegmentSystematicConfig",
+    "SegmentVetoMetrics",
     "SimulationCalibrator",
     "SimulationConfig",
     "TimeSeries",
     "add_coherent_signal",
+    "add_segment_systematics",
     "benchmark_background_treatments",
     "benchmark_coherent_veto",
     "benchmark_empirical_grid",
+    "benchmark_segment_veto",
     "coherence_diagnostics",
     "compute_eacf",
     "compute_eacf_map",
@@ -73,6 +86,7 @@ __all__ = [
     "estimate_empirical_background",
     "estimate_harvey_background",
     "make_observing_window",
+    "segment_diagnostics",
     "simulate_time_series",
     "whiten_spectrum",
 ]
