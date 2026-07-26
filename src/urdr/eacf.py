@@ -17,7 +17,17 @@ ComplexArray = NDArray[np.complex128]
 
 @dataclass(frozen=True)
 class EACFMap:
-    """EACF values evaluated over filter centres and time lags."""
+    """EACF values evaluated over filter centres and time lags.
+
+    Parameters
+    ----------
+    centre_frequencies_uhz
+        Trial filter centres in microhertz.
+    lags_seconds
+        Autocorrelation lags in seconds.
+    values
+        EACF values with shape ``(centre, lag)``.
+    """
 
     centre_frequencies_uhz: FloatArray
     lags_seconds: FloatArray
@@ -28,8 +38,20 @@ class EACFMap:
         delta_nu_uhz: float,
         relative_half_width: float = 0.05,
     ) -> float:
-        """Return maximum EACF power near the expected ``1 / delta_nu`` lag."""
+        """Return maximum EACF power near the expected seismic lag.
 
+        Parameters
+        ----------
+        delta_nu_uhz
+            Trial large separation in microhertz.
+        relative_half_width
+            Fractional half-width around the expected ``1 / delta_nu`` lag.
+
+        Returns
+        -------
+        float
+            Maximum selected EACF value over all filter centres.
+        """
         expected = 1e6 / float(delta_nu_uhz)
         select = np.abs(self.lags_seconds - expected) <= expected * relative_half_width
         if not np.any(select):
@@ -51,8 +73,27 @@ def compute_eacf(
     zero-filled only after robust centring and the pair count at every lag is used
     to correct the resulting autocorrelation. If ``empirical_background`` is
     supplied, the complex spectrum is whitened before applying the bandpass.
-    """
 
+    Parameters
+    ----------
+    series
+        Uniformly sampled time series with an explicit observing mask.
+    centre_frequency_uhz
+        Filter centre in microhertz.
+    filter_width_uhz
+        Full width of the frequency-domain filter in microhertz.
+    max_lag_seconds
+        Optional maximum returned autocorrelation lag.
+    empirical_background
+        Optional empirical or Harvey-like background configuration.
+
+    Returns
+    -------
+    lags_seconds
+        Autocorrelation lags in seconds.
+    values
+        Squared, normalised autocorrelation values.
+    """
     if centre_frequency_uhz <= 0 or filter_width_uhz <= 0:
         raise ValueError("filter centre and width must be positive")
     frequencies_uhz, spectrum = _prepare_spectrum(series, empirical_background)
@@ -124,8 +165,26 @@ def compute_eacf_map(
     max_lag_seconds: float | None = None,
     empirical_background: BackgroundConfig | None = None,
 ) -> EACFMap:
-    """Evaluate the filtered ACF across trial filter-centre frequencies."""
+    """Evaluate the filtered ACF across trial filter-centre frequencies.
 
+    Parameters
+    ----------
+    series
+        Uniformly sampled time series with an explicit observing mask.
+    centre_frequencies_uhz
+        Trial filter centres in microhertz.
+    filter_width_uhz
+        Full width of each frequency-domain filter in microhertz.
+    max_lag_seconds
+        Optional maximum returned autocorrelation lag.
+    empirical_background
+        Optional empirical or Harvey-like background configuration.
+
+    Returns
+    -------
+    EACFMap
+        Frequency-lag map of normalised EACF values.
+    """
     centres = np.atleast_1d(np.asarray(centre_frequencies_uhz, dtype=float))
     if centres.ndim != 1 or centres.size == 0:
         raise ValueError("at least one filter centre is required")

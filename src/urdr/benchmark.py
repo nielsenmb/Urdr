@@ -22,7 +22,25 @@ FloatArray = NDArray[np.float64]
 
 @dataclass(frozen=True)
 class BenchmarkMetrics:
-    """Performance of one background treatment at one signal amplitude."""
+    """Performance of one treatment at one signal amplitude.
+
+    Parameters
+    ----------
+    treatment
+        Name of the background treatment.
+    oscillation_amplitude
+        Injected oscillation amplitude.
+    threshold
+        Null-calibrated detection threshold.
+    false_positive_rate
+        Measured null false-positive rate.
+    true_positive_rate
+        Measured signal detection rate.
+    delta_nu_recovery_rate
+        Fraction recovering ``delta_nu`` within the requested tolerance.
+    median_delta_nu_error
+        Median absolute fractional error in ``delta_nu``.
+    """
 
     treatment: str
     oscillation_amplitude: float
@@ -35,7 +53,19 @@ class BenchmarkMetrics:
 
 @dataclass(frozen=True)
 class BackgroundBenchmark:
-    """Collection of benchmark metrics and the common experiment settings."""
+    """Collection of benchmark metrics and experiment settings.
+
+    Parameters
+    ----------
+    metrics
+        Metrics for every background treatment and signal amplitude.
+    target_false_positive_rate
+        Requested null false-positive rate.
+    delta_nu_tolerance
+        Fractional tolerance defining successful ``delta_nu`` recovery.
+    realizations
+        Number of paired realisations per simulation class.
+    """
 
     metrics: tuple[BenchmarkMetrics, ...]
     target_false_positive_rate: float
@@ -43,8 +73,18 @@ class BackgroundBenchmark:
     realizations: int
 
     def by_treatment(self, name: str) -> tuple[BenchmarkMetrics, ...]:
-        """Return amplitude-ordered metrics for one treatment."""
+        """Return metrics for one background treatment.
 
+        Parameters
+        ----------
+        name
+            Treatment name.
+
+        Returns
+        -------
+        tuple
+            Metrics in the order stored by the benchmark.
+        """
         return tuple(
             row for row in self.metrics if row.treatment == name
         )
@@ -54,8 +94,20 @@ def default_background_treatments(
     numax_uhz: float,
     envelope_width_uhz: float,
 ) -> dict[str, BackgroundConfig | None]:
-    """Return the four pre-registered background-comparison arms."""
+    """Return the four pre-registered background-comparison arms.
 
+    Parameters
+    ----------
+    numax_uhz
+        Predicted oscillation-envelope centre in microhertz.
+    envelope_width_uhz
+        Predicted envelope width in microhertz.
+
+    Returns
+    -------
+    dict
+        Named background configurations, including the no-removal arm.
+    """
     return {
         "none": None,
         "legacy_empirical": EmpiricalBackgroundConfig(),
@@ -73,8 +125,24 @@ def estimate_delta_nu(
     delta_nu_grid_uhz: ArrayLike,
     relative_half_width: float = 0.05,
 ) -> tuple[float, float]:
-    """Return the trial ``delta_nu`` with the strongest EACF statistic."""
+    """Return the trial ``delta_nu`` with the strongest EACF statistic.
 
+    Parameters
+    ----------
+    result
+        Frequency-lag EACF map.
+    delta_nu_grid_uhz
+        Trial large separations in microhertz.
+    relative_half_width
+        Fractional lag half-width used by the EACF statistic.
+
+    Returns
+    -------
+    delta_nu_uhz
+        Best trial large separation in microhertz.
+    score
+        Corresponding EACF statistic.
+    """
     grid = np.atleast_1d(np.asarray(delta_nu_grid_uhz, dtype=float))
     if grid.ndim != 1 or grid.size == 0 or np.any(grid <= 0):
         raise ValueError("delta_nu grid must be a non-empty positive 1D array")
@@ -105,8 +173,39 @@ def benchmark_background_treatments(
     A separate null threshold is estimated for each treatment. Signal
     realizations share random seeds across treatments and amplitudes, which
     reduces Monte Carlo variance in comparisons.
-    """
 
+    Parameters
+    ----------
+    window
+        Exact observing window used by every simulation.
+    simulation
+        Baseline target and forward-model parameters.
+    centre_frequencies_uhz
+        Trial filter centres in microhertz.
+    filter_width_uhz
+        Full EACF filter width in microhertz.
+    delta_nu_grid_uhz
+        Trial large separations in microhertz.
+    oscillation_amplitudes
+        Signal amplitudes to benchmark.
+    treatments
+        Optional mapping of treatment names to background configurations.
+    realizations
+        Number of paired realisations per simulation class.
+    target_false_positive_rate
+        Requested false-positive rate for each treatment.
+    delta_nu_tolerance
+        Fractional tolerance defining successful ``delta_nu`` recovery.
+    max_lag_seconds
+        Optional maximum EACF lag.
+    seed
+        Root seed for deterministic paired simulations.
+
+    Returns
+    -------
+    BackgroundBenchmark
+        Metrics for every treatment and signal amplitude.
+    """
     if realizations < 8:
         raise ValueError("at least eight realizations are required")
     if not 0 < target_false_positive_rate < 1:

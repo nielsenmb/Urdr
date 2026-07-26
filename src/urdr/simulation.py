@@ -12,7 +12,27 @@ from .models import ObservingWindow, TimeSeries
 
 @dataclass(frozen=True)
 class SimulationConfig:
-    """Parameters for a simple seismic time-series forward model."""
+    """Parameters for a simple seismic time-series forward model.
+
+    Parameters
+    ----------
+    white_noise_sigma
+        Standard deviation of Gaussian measurement noise.
+    granulation_amplitude
+        Stationary standard deviation of the Ornstein-Uhlenbeck component.
+    granulation_timescale_days
+        Correlation timescale of the granulation component in days.
+    numax_uhz
+        Oscillation-envelope centre in microhertz.
+    delta_nu_uhz
+        Injected large separation in microhertz.
+    envelope_width_uhz
+        Gaussian envelope width in microhertz.
+    oscillation_amplitude
+        Root-mean-square amplitude of the stochastic mode comb.
+    mode_linewidth_uhz
+        Full mode linewidth in microhertz.
+    """
 
     white_noise_sigma: float = 1.0
     granulation_amplitude: float = 0.0
@@ -24,6 +44,7 @@ class SimulationConfig:
     mode_linewidth_uhz: float = 2.0
 
     def __post_init__(self) -> None:
+        """Validate simulation amplitudes and frequency scales."""
         positive = (
             self.white_noise_sigma,
             self.granulation_timescale_days,
@@ -44,8 +65,24 @@ def simulate_time_series(
     rng: Generator,
     include_oscillations: bool = True,
 ) -> TimeSeries:
-    """Simulate noise, granulation, and optionally a stochastic p-mode comb."""
+    """Simulate noise, granulation, and a stochastic p-mode comb.
 
+    Parameters
+    ----------
+    window
+        Exact cadence grid and observing mask.
+    config
+        Forward-model parameters.
+    rng
+        NumPy random number generator.
+    include_oscillations
+        Whether to include the configured stochastic mode comb.
+
+    Returns
+    -------
+    TimeSeries
+        Simulated time series with missing cadences represented as NaN.
+    """
     size = window.time.size
     flux = rng.normal(0.0, config.white_noise_sigma, size)
     if config.granulation_amplitude > 0:
@@ -125,4 +162,3 @@ def _simulate_mode_comb(
     if standard_deviation > 0:
         signal *= config.oscillation_amplitude / standard_deviation
     return signal
-
