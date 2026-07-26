@@ -17,7 +17,17 @@ Statistic = Callable[[TimeSeries], float]
 
 @dataclass(frozen=True)
 class CalibrationResult:
-    """Observed statistic and its target-specific simulated distributions."""
+    """Observed statistic and target-specific simulated distributions.
+
+    Parameters
+    ----------
+    observed_statistic
+        Statistic measured from the target.
+    null_statistics
+        Statistics from noise-plus-background simulations.
+    signal_statistics
+        Statistics from simulations that include oscillations.
+    """
 
     observed_statistic: float
     null_statistics: FloatArray
@@ -25,8 +35,7 @@ class CalibrationResult:
 
     @property
     def false_alarm_probability(self) -> float:
-        """Return finite-sample-corrected empirical false-alarm probability."""
-
+        """Return the finite-sample-corrected false-alarm probability."""
         exceedances = np.count_nonzero(
             self.null_statistics >= self.observed_statistic
         )
@@ -34,13 +43,20 @@ class CalibrationResult:
 
     @property
     def detection_efficiency(self) -> float:
-        """Return fraction of signal simulations exceeding the observation."""
-
+        """Return the fraction of signal simulations exceeding the target."""
         return float(np.mean(self.signal_statistics >= self.observed_statistic))
 
 
 class SimulationCalibrator:
-    """Calibrate one statistic using deterministic paired simulations."""
+    """Calibrate one statistic using deterministic paired simulations.
+
+    Parameters
+    ----------
+    simulations
+        Number of null and signal simulations.
+    seed
+        Root seed used to create paired random streams.
+    """
 
     def __init__(self, simulations: int = 128, seed: int = 0) -> None:
         if simulations < 8:
@@ -54,8 +70,22 @@ class SimulationCalibrator:
         config: SimulationConfig,
         statistic: Statistic,
     ) -> CalibrationResult:
-        """Evaluate observed, null, and signal statistics for one target."""
+        """Evaluate observed, null, and signal statistics for one target.
 
+        Parameters
+        ----------
+        observed
+            Target time series.
+        config
+            Target-specific simulation parameters.
+        statistic
+            Callable mapping a time series to a scalar statistic.
+
+        Returns
+        -------
+        CalibrationResult
+            Observed statistic and paired simulated distributions.
+        """
         observed_statistic = float(statistic(observed))
         null = np.empty(self.simulations, dtype=float)
         signal = np.empty(self.simulations, dtype=float)
@@ -80,8 +110,22 @@ class SimulationCalibrator:
         config: SimulationConfig,
         statistic: Statistic,
     ) -> FloatArray:
-        """Generate only the window-aware empirical null distribution."""
+        """Generate only the window-aware empirical null distribution.
 
+        Parameters
+        ----------
+        window
+            Exact target observing window.
+        config
+            Target-specific simulation parameters.
+        statistic
+            Callable mapping a time series to a scalar statistic.
+
+        Returns
+        -------
+        numpy.ndarray
+            Simulated null statistics.
+        """
         values = np.empty(self.simulations, dtype=float)
         seeds = np.random.SeedSequence(self.seed).spawn(self.simulations)
         null_config = replace(config, oscillation_amplitude=0.0)
@@ -92,4 +136,3 @@ class SimulationCalibrator:
                 )
             )
         return values
-
