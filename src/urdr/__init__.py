@@ -59,6 +59,13 @@ from .systematics import (
     benchmark_segment_veto,
     segment_diagnostics,
 )
+from .validation import (
+    ReliabilityBin,
+    SyntheticValidation,
+    ValidationCase,
+    ValidationMetric,
+    benchmark_synthetic_validation,
+)
 
 __all__ = [
     "AsteroScaleSamples",
@@ -84,13 +91,17 @@ __all__ = [
     "MorphologyDiagnostics",
     "MorphologyVetoMetrics",
     "ObservingWindow",
+    "ReliabilityBin",
     "SearchRegion",
     "SegmentDiagnostics",
     "SegmentSystematicConfig",
     "SegmentVetoMetrics",
     "SimulationCalibrator",
     "SimulationConfig",
+    "SyntheticValidation",
     "TimeSeries",
+    "ValidationCase",
+    "ValidationMetric",
     "add_coherent_signal",
     "add_segment_systematics",
     "benchmark_background_treatments",
@@ -98,6 +109,7 @@ __all__ = [
     "benchmark_empirical_grid",
     "benchmark_morphology_veto",
     "benchmark_segment_veto",
+    "benchmark_synthetic_validation",
     "calibrate_joint_detector",
     "coherence_diagnostics",
     "compute_eacf",
