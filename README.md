@@ -16,6 +16,8 @@ The current implementation provides:
   AsteroScale-informed high-S/N safeguard;
 - a paired benchmark for no removal, legacy empirical whitening,
   target-aware empirical whitening, and a fitted Harvey-like baseline;
+- reproducible multi-target grids for calibrating the empirical smoothing law
+  across S/N, seismic regime, and observing-window patterns;
 - harmonic spot/planet-like contaminant simulations and a target-calibrated
   spectral-concentration veto;
 - a lightweight adapter for correlated AsteroScale posterior samples.
@@ -138,6 +140,60 @@ unfair comparison caused by different statistic scales. The Harvey-like arm is
 a deliberately simple fitted reference model, not a claim that a single Harvey
 component describes real granulation perfectly.
 
+## Calibrating the empirical smoothing law
+
+The legacy \(a=0.66,\ b=0.88\) values can be compared with alternative
+frequency-dependent smoothing widths over multiple target and window
+conditions. Cases carry an explicit `train` or `validation` label so parameter
+choices can be checked on held-out simulations:
+
+```python
+from urdr import (
+    BackgroundBenchmarkCase,
+    EmpiricalGridPoint,
+    benchmark_empirical_grid,
+    make_observing_window,
+)
+
+window = make_observing_window(
+    duration_days=27.4,
+    cadence_seconds=120.0,
+    gaps_days=((13.6, 13.9),),
+    random_missing_fraction=0.02,
+    seed=5,
+)
+case = BackgroundBenchmarkCase(
+    name="mid_numax_sector",
+    split="train",
+    window=window,
+    simulation=config,
+    centre_frequencies_uhz=centres,
+    filter_width_uhz=400.0,
+    delta_nu_grid_uhz=np.linspace(45.0, 65.0, 41),
+    oscillation_amplitudes=np.array([0.05, 0.1, 0.2]),
+)
+grid = benchmark_empirical_grid(
+    cases=[case, held_out_case],
+    candidates=[
+        EmpiricalGridPoint(0.40, 0.80),
+        EmpiricalGridPoint(0.66, 0.88),
+        EmpiricalGridPoint(0.90, 0.95),
+    ],
+    realizations=128,
+    target_false_positive_rate=0.01,
+    seed=42,
+)
+
+training_front = grid.pareto_front("train")
+validation_metrics = grid.summaries("validation")
+records = grid.to_records()
+```
+
+Detection and \(\Delta\nu\) recovery remain separate metrics. `pareto_front`
+returns the candidates that are not worse on both, avoiding an undocumented
+weighted score. `to_records()` provides flat rows that can be written to CSV or
+loaded into pandas without making pandas a package dependency.
+
 ## Coherent-signal diagnostics
 
 Spot modulation, planet-like periodic variability, and narrow instrumental
@@ -209,6 +265,9 @@ concentration.
 - [`notebooks/coherent_contaminants.ipynb`](notebooks/coherent_contaminants.ipynb)
   introduces harmonic contaminants, inspects the concentration diagnostics, and
   runs a small reproducible veto benchmark.
+- [`notebooks/empirical_background_grid.ipynb`](notebooks/empirical_background_grid.ipynb)
+  calibrates \(a,b\) on paired simulations and evaluates the Pareto candidates
+  on a held-out observing window.
 
 All public APIs use NumPy-style docstrings. The documentation check can be run
 with:

@@ -26,12 +26,22 @@ from .contaminants import (
     coherence_diagnostics,
 )
 from .eacf import EACFMap, compute_eacf, compute_eacf_map
+from .grid import (
+    BackgroundBenchmarkCase,
+    EmpiricalGridBenchmark,
+    EmpiricalGridMetric,
+    EmpiricalGridPoint,
+    EmpiricalGridSummary,
+    benchmark_empirical_grid,
+    make_observing_window,
+)
 from .models import AsteroScaleSamples, ObservingWindow, SearchRegion, TimeSeries
 from .simulation import SimulationConfig, simulate_time_series
 
 __all__ = [
     "AsteroScaleSamples",
     "BackgroundBenchmark",
+    "BackgroundBenchmarkCase",
     "BackgroundConfig",
     "BenchmarkMetrics",
     "CalibrationResult",
@@ -40,6 +50,10 @@ __all__ = [
     "CoherentVetoMetrics",
     "EACFMap",
     "EmpiricalBackgroundConfig",
+    "EmpiricalGridBenchmark",
+    "EmpiricalGridMetric",
+    "EmpiricalGridPoint",
+    "EmpiricalGridSummary",
     "HarveyBackgroundConfig",
     "ObservingWindow",
     "SearchRegion",
@@ -49,6 +63,7 @@ __all__ = [
     "add_coherent_signal",
     "benchmark_background_treatments",
     "benchmark_coherent_veto",
+    "benchmark_empirical_grid",
     "coherence_diagnostics",
     "compute_eacf",
     "compute_eacf_map",
@@ -57,6 +72,7 @@ __all__ = [
     "estimate_delta_nu",
     "estimate_empirical_background",
     "estimate_harvey_background",
+    "make_observing_window",
     "simulate_time_series",
     "whiten_spectrum",
 ]
