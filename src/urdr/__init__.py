@@ -17,6 +17,14 @@ from .benchmark import (
     default_background_treatments,
     estimate_delta_nu,
 )
+from .contaminants import (
+    CoherenceDiagnostics,
+    CoherentSignalConfig,
+    CoherentVetoMetrics,
+    add_coherent_signal,
+    benchmark_coherent_veto,
+    coherence_diagnostics,
+)
 from .eacf import EACFMap, compute_eacf, compute_eacf_map
 from .models import AsteroScaleSamples, ObservingWindow, SearchRegion, TimeSeries
 from .simulation import SimulationConfig, simulate_time_series
@@ -27,6 +35,9 @@ __all__ = [
     "BackgroundConfig",
     "BenchmarkMetrics",
     "CalibrationResult",
+    "CoherenceDiagnostics",
+    "CoherentSignalConfig",
+    "CoherentVetoMetrics",
     "EACFMap",
     "EmpiricalBackgroundConfig",
     "HarveyBackgroundConfig",
@@ -35,7 +46,10 @@ __all__ = [
     "SimulationCalibrator",
     "SimulationConfig",
     "TimeSeries",
+    "add_coherent_signal",
     "benchmark_background_treatments",
+    "benchmark_coherent_veto",
+    "coherence_diagnostics",
     "compute_eacf",
     "compute_eacf_map",
     "default_background_treatments",
