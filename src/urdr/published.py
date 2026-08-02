@@ -277,6 +277,16 @@ class PublishedEACFDetection:
 
     observed: PublishedEACFMap
     null_statistics: FloatArray
+    pointwise_exceedances: NDArray[np.int64]
+
+    def __post_init__(self) -> None:
+        """Validate the pointwise exact-window calibration."""
+        counts = np.asarray(self.pointwise_exceedances, dtype=np.int64)
+        if counts.shape != self.observed.values.shape:
+            raise ValueError("pointwise exceedances must match the observed EACF map")
+        if np.any(counts < 0) or np.any(counts > self.null_statistics.size):
+            raise ValueError("pointwise exceedances are outside the simulation count")
+        object.__setattr__(self, "pointwise_exceedances", counts)
 
     @property
     def false_alarm_probability(self) -> float:
@@ -290,6 +300,54 @@ class PublishedEACFDetection:
     def detection_merit(self) -> float:
         """Return one minus the globally calibrated false-alarm probability."""
         return 1.0 - self.false_alarm_probability
+
+    @property
+    def pointwise_false_alarm_probability(self) -> FloatArray:
+        """Return empirical tail probabilities at every frequency--lag pixel.
+
+        These probabilities account for the target's sampling window and the
+        complete background-estimation pipeline, but not for searching across
+        pixels. Use :attr:`false_alarm_probability` for global significance.
+        """
+        return np.asarray(
+            (self.pointwise_exceedances + 1) / (self.null_statistics.size + 1),
+            dtype=float,
+        )
+
+    @property
+    def window_aware_score(self) -> FloatArray:
+        """Return the pointwise ``-log10(p)`` exact-window significance map."""
+        return np.asarray(
+            -np.log10(self.pointwise_false_alarm_probability), dtype=float
+        )
+
+    def window_aware_collapsed(self) -> FloatArray:
+        """Mean the pointwise significance inside each physical lag band."""
+        score = self.window_aware_score
+        sums = np.sum(np.where(self.observed.physical_mask, score, 0.0), axis=1)
+        counts = np.sum(self.observed.physical_mask, axis=1)
+        if np.any(counts == 0):
+            raise ValueError("physical search band contains no lag samples")
+        return np.asarray(sums / counts, dtype=float)
+
+    @property
+    def window_aware_best_numax_uhz(self) -> float:
+        """Return the trial centre with greatest mean pointwise significance."""
+        row = int(np.argmax(self.window_aware_collapsed()))
+        return float(self.observed.centre_frequencies_uhz[row])
+
+    @property
+    def window_aware_best_delta_nu_uhz(self) -> float:
+        """Return the raw-EACF peak lag in the best window-aware row.
+
+        The window-aware collapse selects the filter row. Within that row the
+        raw EACF peak is used because selecting the smallest pointwise tail
+        probability would introduce another uncalibrated lag-wise maximum.
+        """
+        row = int(np.argmax(self.window_aware_collapsed()))
+        selected = np.flatnonzero(self.observed.physical_mask[row])
+        lag_index = selected[np.argmax(self.observed.values[row, selected])]
+        return float(1e6 / self.observed.lags_seconds[lag_index])
 
 
 def envelope_width_uhz(numax_uhz: ArrayLike) -> FloatArray:
@@ -391,8 +449,9 @@ def calibrate_published_eacf(
     Each null realization uses the target's exact cadence grid and observing
     mask. Null periodograms are evaluated in bounded batches using the same
     ``nifty-ls`` backend and Parseval normalization as Mimir. Granulation
-    backgrounds are re-estimated independently and the maximum collapsed
-    response over the physical search region is retained.
+    backgrounds are re-estimated independently. Urdr retains both the maximum
+    collapsed response for global calibration and the number of null
+    exceedances at every frequency--lag pixel for window-aware localisation.
     """
     if simulations < 8:
         raise ValueError("at least eight null simulations are required")
@@ -437,6 +496,7 @@ def calibrate_published_eacf(
     )
     observed = _map_from_snr(observed_snr, plan, fft_workers)
     null = np.empty(simulations, dtype=float)
+    pointwise_exceedances = np.zeros(observed.values.shape, dtype=np.int64)
     null_config = replace(simulation, oscillation_amplitude=0.0)
     seeds = np.random.SeedSequence(seed).spawn(simulations)
     for start in range(0, simulations, batch_size):
@@ -461,12 +521,15 @@ def calibrate_published_eacf(
         for index, density in enumerate(power_density):
             noise = estimate_background(plan.frequency_uhz[1:], density, settings)
             snr_batch[index, 1:] = density / noise
-        null[start:stop] = _global_statistics_from_snr_batch(
+        statistics, exceedances = _calibration_from_snr_batch(
             snr_batch,
             plan,
             fft_workers,
+            observed.values,
         )
-    return PublishedEACFDetection(observed, null)
+        null[start:stop] = statistics
+        pointwise_exceedances += exceedances
+    return PublishedEACFDetection(observed, null, pointwise_exceedances)
 
 
 @dataclass(frozen=True)
@@ -637,12 +700,14 @@ def _batched_null_power_density(
     return np.asarray(power / frequency_spacing_uhz, dtype=float)
 
 
-def _global_statistics_from_snr_batch(
+def _calibration_from_snr_batch(
     snr: FloatArray,
     plan: _PublishedPlan,
     fft_workers: int | None,
-) -> FloatArray:
+    observed_values: FloatArray,
+) -> tuple[FloatArray, NDArray[np.int64]]:
     maxima = np.full(snr.shape[0], -np.inf, dtype=float)
+    exceedances = np.zeros(observed_values.shape, dtype=np.int64)
     for row, band in enumerate(plan.filters):
         acf = ifft(
             snr[:, band.start : band.stop] * band.weights,
@@ -653,10 +718,16 @@ def _global_statistics_from_snr_batch(
         zero_power = np.abs(acf[:, 0]) ** 2
         if np.any(zero_power <= 0):
             raise ValueError("filtered signal-to-noise spectrum has zero power")
-        selected_lags = np.flatnonzero(plan.lag_selection)[plan.physical_mask[row]]
-        collapsed = np.mean(np.abs(acf[:, selected_lags]) ** 2, axis=1) / zero_power
+        values = np.asarray(
+            np.abs(acf[:, plan.lag_selection]) ** 2 / zero_power[:, None],
+            dtype=float,
+        )
+        exceedances[row] = np.count_nonzero(
+            values >= observed_values[row][None, :], axis=0
+        )
+        collapsed = np.mean(values[:, plan.physical_mask[row]], axis=1)
         maxima = np.maximum(maxima, collapsed)
-    return maxima
+    return maxima, exceedances
 
 
 def _centres_array(values: ArrayLike) -> FloatArray:
