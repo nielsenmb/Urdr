@@ -16,7 +16,12 @@ dependencies = ["numpy>=1.23", "scipy>=1.9"]
 urdr-tess-grid = "urdr.science:main"
 
 [project.optional-dependencies]
-test = ["pydocstyle>=6.3", "pytest>=7", "pytest-cov>=4"]
+test = [
+    "matplotlib>=3.6",
+    "pydocstyle>=6.3",
+    "pytest>=7",
+    "pytest-cov>=4",
+]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/urdr"]
