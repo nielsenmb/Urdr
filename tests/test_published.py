@@ -86,8 +86,32 @@ def test_exact_window_calibration_is_reproducible():
     second = calibrate_published_eacf(series, config, [475.0, 500.0], **kwargs)
 
     assert np.array_equal(first.null_statistics, second.null_statistics)
+    assert np.array_equal(first.pointwise_exceedances, second.pointwise_exceedances)
     assert 0.0 <= first.detection_merit < 1.0
     assert first.false_alarm_probability >= 1.0 / 9.0
+
+
+def test_window_aware_map_is_finite_and_empirically_bounded():
+    """Pointwise exact-window tail probabilities retain finite resolution."""
+    series, config = _series(oscillation_amplitude=0.4)
+    result = calibrate_published_eacf(
+        series,
+        config,
+        [475.0, 500.0],
+        simulations=8,
+        seed=52,
+        filter_widths_uhz=180.0,
+        max_lag_seconds=60_000.0,
+    )
+
+    pointwise = result.pointwise_false_alarm_probability
+    assert pointwise.shape == result.observed.values.shape
+    assert np.all(pointwise >= 1.0 / 9.0)
+    assert np.all(pointwise <= 1.0)
+    assert np.all(np.isfinite(result.window_aware_score))
+    assert result.window_aware_collapsed().shape == (2,)
+    assert result.window_aware_best_numax_uhz in (475.0, 500.0)
+    assert result.window_aware_best_delta_nu_uhz > 0.0
 
 
 def test_batched_calibration_matches_single_realisation_batches():
@@ -106,6 +130,7 @@ def test_batched_calibration_matches_single_realisation_batches():
         series, config, [475.0, 500.0], batch_size=4, **kwargs
     )
     assert np.allclose(single.null_statistics, batched.null_statistics, rtol=1e-12)
+    assert np.array_equal(single.pointwise_exceedances, batched.pointwise_exceedances)
 
 
 def test_asteroscale_search_preserves_paired_conditional_relation():
