@@ -8,6 +8,8 @@ gaps, low-frequency variability, and target-specific noise explicit.
 
 The current implementation provides:
 
+- a faithful published Lomb--Scargle EACF using Mimir, Hanning filters, and
+  complex-modulus autocorrelations;
 - a frequency-filtered time-series ACF and frequency-lag map;
 - explicit `TimeSeries` and `ObservingWindow` models;
 - exact-window white-noise, granulation, and stochastic mode-comb simulations;
@@ -36,6 +38,72 @@ The current implementation provides:
 Skuld is deliberately not a dependency. This allows an AsteroScale-only Urdr
 baseline to be compared fairly with an optional experiment in which Skuld
 localises the oscillation envelope.
+
+## Published EACF workflow
+
+The original Nielsen et al. (2022) repeating-pattern workflow is available
+separately from Urdr's experimental time-domain estimator. Mimir calculates a
+critically sampled Lomb--Scargle power-density spectrum from only the observed
+timestamps. Urdr divides out the empirical background, applies the published
+Hanning filter bank, and evaluates the squared complex magnitude of the
+inverse transform. Taking the complex magnitude removes the rapid filter-centre
+carrier that remains in a squared real ACF.
+
+```python
+import numpy as np
+
+from urdr import (
+    EmpiricalBackgroundConfig,
+    SimulationConfig,
+    TimeSeries,
+    calibrate_published_eacf,
+    compute_published_eacf_map,
+)
+
+series = TimeSeries.from_arrays(time_grid_days, flux_with_nans)
+centres = np.linspace(500.0, 1500.0, 101)
+
+eacf = compute_published_eacf_map(
+    series,
+    centres,
+    background=EmpiricalBackgroundConfig(),
+)
+print(eacf.best_numax_uhz, eacf.best_delta_nu_uhz)
+
+simulation = SimulationConfig(
+    white_noise_sigma=white_noise_sigma,
+    granulation_amplitude=granulation_amplitude,
+    granulation_timescale_days=granulation_timescale_days,
+)
+detection = calibrate_published_eacf(
+    series,
+    simulation,
+    centres,
+    simulations=1024,
+    seed=42,
+)
+print(detection.detection_merit, detection.false_alarm_probability)
+```
+
+The default physical mask follows
+
+\[
+\Delta\nu = \Delta\nu_\odot
+\left(\frac{\nu_{\max}}{\nu_{\max,\odot}}\right)^{0.791}
+\]
+
+with the published multiplicative range of \(10^{\pm0.2}\). This is the
+banana-shaped region in the frequency--lag map. The headline statistic is the
+largest collapsed response inside that complete region. Each null realization
+uses the target's exact cadence grid and observing mask, re-estimates the
+background, and records the same global maximum. The resulting false-alarm
+probability therefore accounts for the real window and the look-elsewhere
+effect, rather than transforming a Gamma density into a probability.
+
+`notebooks/published_eacf.ipynb` walks through the spectrum, empirical
+background, smooth EACF map, physical mask, collapsed response, and calibrated
+detection. The older `compute_eacf_map` API remains available unchanged for
+direct comparison with the time-domain, pair-count-corrected estimator.
 
 ## Scientific-scale synthetic experiments
 
