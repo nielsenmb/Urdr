@@ -570,11 +570,13 @@ library.
   injects campaign/sector variance, offset, and drift changes and benchmarks the
   calibrated instability veto.
 - [`notebooks/eacf_morphology.ipynb`](notebooks/eacf_morphology.ipynb)
-  visualises a frequency-lag ridge and benchmarks the joint morphology check
-  against coherent and segment-dependent hard negatives.
+  plots filtered ACFs at individual trial frequencies, visualises the complete
+  frequency-lag ridge, and benchmarks the joint morphology check against
+  coherent and segment-dependent hard negatives.
 - [`notebooks/joint_inference.ipynb`](notebooks/joint_inference.ipynb)
-  fits the unified detector, runs it on a fresh injection, and inspects its
-  held-out probability and false-alarm calibration.
+  follows a fresh injection through the Fourier-amplitude taper, filtered time
+  series, lag-domain ACF, frequency-lag map, diagnostic vector, calibration,
+  and final unified detection result.
 - [`notebooks/synthetic_validation.ipynb`](notebooks/synthetic_validation.ipynb)
   compares all three detection methods on a small pre-registered matrix and
   inspects reliability without conflating it with detection performance.
