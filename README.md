@@ -53,7 +53,9 @@ carrier that remains in a squared real ACF.
 import numpy as np
 
 from urdr import (
+    AsteroScaleSamples,
     EmpiricalBackgroundConfig,
+    PublishedEACFSearch,
     SimulationConfig,
     TimeSeries,
     calibrate_published_eacf,
@@ -99,6 +101,54 @@ uses the target's exact cadence grid and observing mask, re-estimates the
 background, and records the same global maximum. The resulting false-alarm
 probability therefore accounts for the real window and the look-elsewhere
 effect, rather than transforming a Gamma density into a probability.
+
+AsteroScale can define a second, target-informed search without replacing the
+broad result:
+
+```python
+import asteroscale as ast
+
+prediction = ast.solve(
+    given={
+        "M": (1.0, 0.05),
+        "R": (2.6, 0.10),
+        "Teff": (5600.0, 80.0),
+        "FeH": (0.0, 0.10),
+    },
+    want=["numax", "dnu", "FWHM_env"],
+    preset="fast",
+    seed=42,
+)
+samples = AsteroScaleSamples.from_mapping(prediction)
+informed_search = PublishedEACFSearch.from_asteroscale(samples)
+informed = calibrate_published_eacf(
+    series,
+    simulation,
+    search=informed_search,
+    simulations=1024,
+    batch_size=16,
+    fft_workers=4,
+    seed=42,
+)
+```
+
+The paired AsteroScale samples define local conditional
+\(\Delta\nu\) intervals and Hanning widths across the predicted
+\(\nu_{\max}\) range. Point predictions fall back to the broad published
+scatter. The same informed region is applied to the observed map and every
+null realization, so its false-alarm probability includes its smaller
+look-elsewhere volume. It should be labelled as conditional on the external
+stellar information and reported alongside the broad scaling-relation result.
+
+Null calibration is batched because `nifty-ls`, Mimir's Lomb--Scargle backend,
+can evaluate several light curves on one shared timestamp/frequency grid.
+Granulation is generated with a compiled AR(1) filter and Hanning transforms
+reuse a static search plan. `batch_size` trades memory for throughput, while
+`fft_workers` controls SciPy FFT parallelism (`-1` means all cores). On a
+180-day, 120-second benchmark with 41 broad filters, 64 nulls fell from about
+15.2 s to 3.2 s using batches of 16 and four FFT workers; a 15-centre
+AsteroScale search took about 2.2 s. Exact timings depend strongly on hardware,
+cadence, filter count, and gap pattern.
 
 `notebooks/published_eacf.ipynb` walks through the spectrum, empirical
 background, smooth EACF map, physical mask, collapsed response, and calibrated
@@ -215,6 +265,12 @@ python -m pip install -e ".[test]"
 pytest
 ```
 
+Install the optional AsteroScale integration for the informed-search example:
+
+```bash
+python -m pip install -e ".[test,asteroscale]"
+```
+
 ## Minimal example
 
 ```python
@@ -284,15 +340,17 @@ reproducible and avoid turning Monte Carlo noise into likelihood noise.
 
 ## AsteroScale boundary
 
-`AsteroScaleSamples` accepts dictionary-like posterior output containing
-`numax`, `delta_nu`, and `envelope_width`. Correlated samples remain paired:
+`AsteroScaleSamples` accepts AsteroScale's public `numax`, `dnu`, and
+`FWHM_env` output names as well as the legacy Urdr aliases. Correlated samples
+remain paired:
 
 ```python
-from urdr import AsteroScaleSamples
+from urdr import AsteroScaleSamples, PublishedEACFSearch
 
 samples = AsteroScaleSamples.from_mapping(asteroscale_output)
 search_region = samples.search_region()
 simulation_parameters = samples.median_parameters()
+published_search = PublishedEACFSearch.from_asteroscale(samples)
 ```
 
 ## Background-treatment benchmark
