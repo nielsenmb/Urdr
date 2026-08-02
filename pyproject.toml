@@ -12,6 +12,7 @@ license = { text = "MIT" }
 authors = [{ name = "Martin B. Nielsen" }]
 dependencies = [
     "mimir-astro @ git+https://github.com/nielsenmb/Mimir.git@880d23ce7562305d854142384513d7c1fb65661a",
+    "nifty-ls>=1.1.0",
     "numpy>=1.26",
     "scipy>=1.11",
 ]
@@ -20,6 +21,9 @@ dependencies = [
 urdr-tess-grid = "urdr.science:main"
 
 [project.optional-dependencies]
+asteroscale = [
+    "AsteroScale @ git+https://github.com/nielsenmb/AsteroScale.git@3d362251c7afe953b2c7ce67b1117c105df1f63a",
+]
 test = [
     "matplotlib>=3.6",
     "pydocstyle>=6.3",

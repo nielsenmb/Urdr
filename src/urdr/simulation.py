@@ -6,6 +6,7 @@ from dataclasses import dataclass
 
 import numpy as np
 from numpy.random import Generator
+from scipy.signal import lfilter
 
 from .models import ObservingWindow, TimeSeries
 
@@ -114,13 +115,13 @@ def _simulate_ou(
 ) -> np.ndarray:
     coefficient = np.exp(-cadence_days / timescale_days)
     innovation = amplitude * np.sqrt(1.0 - coefficient**2)
-    output = np.empty(size, dtype=float)
-    output[0] = rng.normal(0.0, amplitude)
-    for index in range(1, size):
-        output[index] = coefficient * output[index - 1] + rng.normal(
-            0.0, innovation
-        )
-    return output
+    driving_noise = np.empty(size, dtype=float)
+    driving_noise[0] = rng.normal(0.0, amplitude)
+    driving_noise[1:] = rng.normal(0.0, innovation, size - 1)
+    return np.asarray(
+        lfilter([1.0], [1.0, -coefficient], driving_noise),
+        dtype=float,
+    )
 
 
 def _simulate_mode_comb(

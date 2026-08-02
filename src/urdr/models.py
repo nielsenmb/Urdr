@@ -258,19 +258,33 @@ class AsteroScaleSamples:
         Parameters
         ----------
         samples
-            Mapping containing ``numax``, ``delta_nu``, and
-            ``envelope_width`` arrays, with optional granulation arrays.
+            Mapping containing ``numax`` and either Urdr's ``delta_nu`` and
+            ``envelope_width`` names or AsteroScale's public ``dnu`` and
+            ``FWHM_env`` names. Scalars and arrays are accepted. Optional
+            granulation amplitude may be named ``granulation_amplitude`` or
+            ``A_gran``.
 
         Returns
         -------
         AsteroScaleSamples
             Validated adapter preserving the input sample pairing.
         """
+        delta_nu_key = "delta_nu" if "delta_nu" in samples else "dnu"
+        width_key = "envelope_width" if "envelope_width" in samples else "FWHM_env"
+        amplitude_key = (
+            "granulation_amplitude"
+            if "granulation_amplitude" in samples
+            else "A_gran"
+        )
         return cls(
-            numax_uhz=np.asarray(samples["numax"], dtype=float),
-            delta_nu_uhz=np.asarray(samples["delta_nu"], dtype=float),
-            envelope_width_uhz=np.asarray(samples["envelope_width"], dtype=float),
-            granulation_amplitude=_optional_array(samples, "granulation_amplitude"),
+            numax_uhz=np.atleast_1d(np.asarray(samples["numax"], dtype=float)),
+            delta_nu_uhz=np.atleast_1d(
+                np.asarray(samples[delta_nu_key], dtype=float)
+            ),
+            envelope_width_uhz=np.atleast_1d(
+                np.asarray(samples[width_key], dtype=float)
+            ),
+            granulation_amplitude=_optional_array(samples, amplitude_key),
             granulation_timescale_days=_optional_array(
                 samples, "granulation_timescale_days"
             ),
@@ -328,4 +342,4 @@ class AsteroScaleSamples:
 
 def _optional_array(samples: Mapping[str, ArrayLike], key: str) -> FloatArray | None:
     value = samples.get(key)
-    return None if value is None else np.asarray(value, dtype=float)
+    return None if value is None else np.atleast_1d(np.asarray(value, dtype=float))

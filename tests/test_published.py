@@ -4,7 +4,9 @@ import numpy as np
 import pytest
 
 from urdr import (
+    AsteroScaleSamples,
     DeltaNuScaling,
+    PublishedEACFSearch,
     SimulationConfig,
     calibrate_published_eacf,
     compute_published_eacf_map,
@@ -86,6 +88,61 @@ def test_exact_window_calibration_is_reproducible():
     assert np.array_equal(first.null_statistics, second.null_statistics)
     assert 0.0 <= first.detection_merit < 1.0
     assert first.false_alarm_probability >= 1.0 / 9.0
+
+
+def test_batched_calibration_matches_single_realisation_batches():
+    """Batching changes runtime, not the target-specific null statistics."""
+    series, config = _series(oscillation_amplitude=0.4)
+    kwargs = {
+        "simulations": 8,
+        "seed": 91,
+        "filter_widths_uhz": 180.0,
+        "max_lag_seconds": 60_000.0,
+    }
+    single = calibrate_published_eacf(
+        series, config, [475.0, 500.0], batch_size=1, **kwargs
+    )
+    batched = calibrate_published_eacf(
+        series, config, [475.0, 500.0], batch_size=4, **kwargs
+    )
+    assert np.allclose(single.null_statistics, batched.null_statistics, rtol=1e-12)
+
+
+def test_asteroscale_search_preserves_paired_conditional_relation():
+    """Target-informed lag bounds follow paired AsteroScale samples."""
+    numax = np.linspace(400.0, 600.0, 500)
+    samples = AsteroScaleSamples(
+        numax,
+        0.08 * numax,
+        0.3 * numax,
+    )
+    search = PublishedEACFSearch.from_asteroscale(
+        samples,
+        centre_count=9,
+        credible_mass=0.9,
+        conditional_neighbours=64,
+    )
+    assert search.source == "asteroscale"
+    assert np.all(np.diff(search.predicted_delta_nu_uhz) > 0)
+    assert np.all(np.diff(search.filter_widths_uhz) > 0)
+    assert np.all(search.lower_delta_nu_uhz < search.predicted_delta_nu_uhz)
+    assert np.all(search.predicted_delta_nu_uhz < search.upper_delta_nu_uhz)
+
+
+def test_asteroscale_search_runs_separately_from_broad_search():
+    """An informed search is explicit in the returned detection product."""
+    series, _ = _series()
+    samples = AsteroScaleSamples.from_mapping(
+        {"numax": 500.0, "dnu": 32.0, "FWHM_env": 160.0}
+    )
+    search = PublishedEACFSearch.from_asteroscale(samples, centre_count=5)
+    result = compute_published_eacf_map(
+        series,
+        search=search,
+        max_lag_seconds=60_000.0,
+    )
+    assert result.search_source == "asteroscale"
+    assert result.centre_frequencies_uhz.size == 5
 
 
 def test_filter_centres_must_be_positive():
