@@ -21,6 +21,9 @@ dependencies = [
 urdr-tess-grid = "urdr.science:main"
 
 [project.optional-dependencies]
+real-data = [
+    "lightkurve>=2.5",
+]
 asteroscale = [
     "AsteroScale @ git+https://github.com/nielsenmb/AsteroScale.git@3d362251c7afe953b2c7ce67b1117c105df1f63a",
 ]

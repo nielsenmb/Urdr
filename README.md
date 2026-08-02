@@ -724,6 +724,10 @@ library.
 
 ## Notebooks
 
+- [`notebooks/real_targets.ipynb`](notebooks/real_targets.ipynb)
+  downloads one Kepler short-cadence quarter and one TESS 2-minute sector with
+  Mimir, then compares broad and AsteroScale-informed raw and null-standardized
+  published-EACF results on real solar-like oscillators.
 - [`notebooks/coherent_contaminants.ipynb`](notebooks/coherent_contaminants.ipynb)
   introduces harmonic contaminants, inspects the concentration diagnostics, and
   runs a small reproducible veto benchmark.
