@@ -30,3 +30,13 @@ def test_asteroscale_adapter_preserves_sample_correlations() -> None:
     assert region.maximum_uhz > numax.max()
     assert region.centre_uhz == pytest.approx(100.0)
 
+
+def test_asteroscale_adapter_accepts_public_output_names_and_scalars() -> None:
+    """AsteroScale's current dnu/FWHM_env names need no manual renaming."""
+    samples = AsteroScaleSamples.from_mapping(
+        {"numax": 1000.0, "dnu": 55.0, "FWHM_env": 300.0, "A_gran": 20.0}
+    )
+    assert np.array_equal(samples.numax_uhz, [1000.0])
+    assert np.array_equal(samples.delta_nu_uhz, [55.0])
+    assert np.array_equal(samples.envelope_width_uhz, [300.0])
+    assert np.array_equal(samples.granulation_amplitude, [20.0])
