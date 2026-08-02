@@ -10,7 +10,11 @@ readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
 authors = [{ name = "Martin B. Nielsen" }]
-dependencies = ["numpy>=1.23", "scipy>=1.9"]
+dependencies = [
+    "mimir-astro @ git+https://github.com/nielsenmb/Mimir.git@880d23ce7562305d854142384513d7c1fb65661a",
+    "numpy>=1.26",
+    "scipy>=1.11",
+]
 
 [project.scripts]
 urdr-tess-grid = "urdr.science:main"
@@ -25,6 +29,9 @@ test = [
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/urdr"]
+
+[tool.hatch.metadata]
+allow-direct-references = true
 
 [tool.pytest.ini_options]
 addopts = "-ra"
