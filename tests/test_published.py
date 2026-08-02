@@ -76,17 +76,19 @@ def test_published_map_recovers_injected_seismic_scale():
 def test_exact_window_calibration_is_reproducible():
     """Target-specific null maxima are deterministic for a fixed seed."""
     series, config = _series(oscillation_amplitude=0.4)
-    kwargs = dict(
-        simulations=8,
-        seed=34,
-        filter_widths_uhz=180.0,
-        max_lag_seconds=60_000.0,
-    )
+    kwargs = {
+        "simulations": 8,
+        "seed": 34,
+        "filter_widths_uhz": 180.0,
+        "max_lag_seconds": 60_000.0,
+    }
     first = calibrate_published_eacf(series, config, [475.0, 500.0], **kwargs)
     second = calibrate_published_eacf(series, config, [475.0, 500.0], **kwargs)
 
     assert np.array_equal(first.null_statistics, second.null_statistics)
     assert np.array_equal(first.pointwise_exceedances, second.pointwise_exceedances)
+    assert np.array_equal(first.pointwise_null_mean, second.pointwise_null_mean)
+    assert np.array_equal(first.pointwise_null_m2, second.pointwise_null_m2)
     assert 0.0 <= first.detection_merit < 1.0
     assert first.false_alarm_probability >= 1.0 / 9.0
 
@@ -109,6 +111,9 @@ def test_window_aware_map_is_finite_and_empirically_bounded():
     assert np.all(pointwise >= 1.0 / 9.0)
     assert np.all(pointwise <= 1.0)
     assert np.all(np.isfinite(result.window_aware_score))
+    assert np.all(np.isfinite(result.null_standardized_score))
+    assert result.null_standardized_score.shape == result.observed.values.shape
+    assert result.null_standardized_collapsed().shape == (2,)
     assert result.window_aware_collapsed().shape == (2,)
     assert result.window_aware_best_numax_uhz in (475.0, 500.0)
     assert result.window_aware_best_delta_nu_uhz > 0.0
@@ -131,6 +136,16 @@ def test_batched_calibration_matches_single_realisation_batches():
     )
     assert np.allclose(single.null_statistics, batched.null_statistics, rtol=1e-12)
     assert np.array_equal(single.pointwise_exceedances, batched.pointwise_exceedances)
+    assert np.allclose(
+        single.pointwise_null_mean, batched.pointwise_null_mean, rtol=1e-14
+    )
+    assert np.allclose(single.pointwise_null_m2, batched.pointwise_null_m2, rtol=1e-14)
+    assert np.allclose(
+        single.null_standardized_score,
+        batched.null_standardized_score,
+        rtol=1e-12,
+        atol=1e-12,
+    )
 
 
 def test_asteroscale_search_preserves_paired_conditional_relation():
