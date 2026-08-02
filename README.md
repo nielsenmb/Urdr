@@ -102,6 +102,35 @@ background, and records the same global maximum. The resulting false-alarm
 probability therefore accounts for the real window and the look-elsewhere
 effect, rather than transforming a Gamma density into a probability.
 
+The same null runs also provide a window-aware localisation map without
+retaining all simulated maps in memory. At every frequency--lag pixel, Urdr
+counts the null values at least as large as the observation and reports
+
+\[
+p_{\mathrm{point}}(\nu,\tau)=\frac{k(\nu,\tau)+1}{N_{\mathrm{null}}+1},
+\qquad
+S_{\mathrm{window}}=-\log_{10}p_{\mathrm{point}}.
+\]
+
+```python
+pointwise_p = detection.pointwise_false_alarm_probability
+window_aware_map = detection.window_aware_score
+window_aware_curve = detection.window_aware_collapsed()
+print(
+    detection.window_aware_best_numax_uhz,
+    detection.window_aware_best_delta_nu_uhz,
+)
+```
+
+This suppresses frequency--lag structures that recur in exact-window nulls
+and makes different filter centres more comparable. The pointwise values are
+for localisation only: they do not include the look-elsewhere penalty. Use
+`false_alarm_probability` for the globally calibrated detection result. The
+smallest resolvable pointwise probability is `1 / (simulations + 1)`. The
+window-aware collapse selects a filter row; the reported window-aware
+`delta_nu` then comes from the strongest raw-EACF lag in that row, avoiding an
+additional uncalibrated maximum over pointwise tail probabilities.
+
 AsteroScale can define a second, target-informed search without replacing the
 broad result:
 
