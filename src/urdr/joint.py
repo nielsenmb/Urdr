@@ -6,8 +6,8 @@ from dataclasses import dataclass
 from typing import Mapping, Sequence
 
 import numpy as np
+from baldr import Beta
 from numpy.typing import ArrayLike, NDArray
-from scipy.stats import beta
 
 from .background import BackgroundConfig
 from .benchmark import estimate_delta_nu
@@ -734,8 +734,12 @@ def _diagnostic_flags(
 
 
 def _beta_interval(exceedances: int, total: int) -> tuple[float, float]:
-    lower = float(beta.ppf(0.16, exceedances + 1, total - exceedances + 1))
-    upper = float(beta.ppf(0.84, exceedances + 1, total - exceedances + 1))
+    posterior = Beta(
+        exceedances + 1,
+        total - exceedances + 1,
+        backend="numpy",
+    )
+    lower, upper = np.asarray(posterior.ppf([0.16, 0.84]), dtype=float)
     return lower, upper
 
 

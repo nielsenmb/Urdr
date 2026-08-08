@@ -1,6 +1,7 @@
 """Tests for the end-to-end joint inference layer."""
 
 import numpy as np
+import pytest
 
 from urdr import (
     CoherentSignalConfig,
@@ -11,6 +12,15 @@ from urdr import (
     make_observing_window,
     simulate_time_series,
 )
+from urdr.joint import _beta_interval
+
+
+def test_beta_interval_matches_reference_values():
+    """Check the Baldr-backed posterior interval against fixed references."""
+    lower, upper = _beta_interval(exceedances=30, total=100)
+
+    assert lower == pytest.approx(0.258679350965167)
+    assert upper == pytest.approx(0.349150884406870)
 
 
 def _problem() -> dict:

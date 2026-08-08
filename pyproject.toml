@@ -11,6 +11,7 @@ requires-python = ">=3.10"
 license = { text = "MIT" }
 authors = [{ name = "Martin B. Nielsen" }]
 dependencies = [
+    "baldr[numpy] @ git+https://github.com/nielsenmb/Baldr.git@476f59ff4114226488f9e155c83593a725f0f232",
     "mimir-astro @ git+https://github.com/nielsenmb/Mimir.git@880d23ce7562305d854142384513d7c1fb65661a",
     "nifty-ls>=1.1.0",
     "numpy>=1.26",
