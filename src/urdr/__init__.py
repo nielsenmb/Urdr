@@ -1,13 +1,14 @@
 """Window-aware time-series EACF detection."""
 
-from .calibration import CalibrationResult, SimulationCalibrator
 from .background import (
     BackgroundConfig,
     EmpiricalBackgroundConfig,
     HarveyBackgroundConfig,
+    RunsBackgroundConfig,
     estimate_background,
     estimate_empirical_background,
     estimate_harvey_background,
+    estimate_runs_background,
     whiten_spectrum,
 )
 from .benchmark import (
@@ -17,6 +18,7 @@ from .benchmark import (
     default_background_treatments,
     estimate_delta_nu,
 )
+from .calibration import CalibrationResult, SimulationCalibrator
 from .contaminants import (
     CoherenceDiagnostics,
     CoherentSignalConfig,
@@ -40,7 +42,6 @@ from .grid import (
     benchmark_empirical_grid,
     make_observing_window,
 )
-from .models import AsteroScaleSamples, ObservingWindow, SearchRegion, TimeSeries
 from .joint import (
     DetectionResult,
     JointDetector,
@@ -49,13 +50,13 @@ from .joint import (
     calibrate_joint_detector,
     joint_diagnostics,
 )
+from .models import AsteroScaleSamples, ObservingWindow, SearchRegion, TimeSeries
 from .morphology import (
     MorphologyDiagnostics,
     MorphologyVetoMetrics,
     benchmark_morphology_veto,
     eacf_morphology,
 )
-from .simulation import SimulationConfig, simulate_time_series
 from .published import (
     DeltaNuScaling,
     PublishedEACFDetection,
@@ -74,6 +75,7 @@ from .science import (
     assess_validation,
     make_tess_scientific_grid,
 )
+from .simulation import SimulationConfig, simulate_time_series
 from .systematics import (
     SegmentDiagnostics,
     SegmentSystematicConfig,
@@ -101,8 +103,8 @@ __all__ = [
     "CoherenceDiagnostics",
     "CoherentSignalConfig",
     "CoherentVetoMetrics",
-    "DetectionResult",
     "DeltaNuScaling",
+    "DetectionResult",
     "EACFMap",
     "EmpiricalBackgroundConfig",
     "EmpiricalGridBenchmark",
@@ -114,23 +116,24 @@ __all__ = [
     "JointDetector",
     "JointDiagnostics",
     "JointValidationMetrics",
+    "MethodAssessment",
     "MorphologyDiagnostics",
     "MorphologyVetoMetrics",
+    "ObservingWindow",
     "PublishedEACFDetection",
     "PublishedEACFMap",
     "PublishedEACFSearch",
-    "MethodAssessment",
-    "ObservingWindow",
     "ReliabilityBin",
-    "SearchRegion",
+    "RunsBackgroundConfig",
     "ScientificCaseMetadata",
+    "SearchRegion",
     "SegmentDiagnostics",
     "SegmentSystematicConfig",
     "SegmentVetoMetrics",
     "SimulationCalibrator",
     "SimulationConfig",
-    "SyntheticValidation",
     "SyntheticExperimentPlan",
+    "SyntheticValidation",
     "TessScientificGrid",
     "TimeSeries",
     "ValidationCase",
@@ -152,12 +155,13 @@ __all__ = [
     "compute_eacf_map",
     "compute_published_eacf_map",
     "default_background_treatments",
+    "eacf_morphology",
+    "envelope_width_uhz",
     "estimate_background",
     "estimate_delta_nu",
     "estimate_empirical_background",
     "estimate_harvey_background",
-    "eacf_morphology",
-    "envelope_width_uhz",
+    "estimate_runs_background",
     "joint_diagnostics",
     "make_observing_window",
     "make_tess_scientific_grid",

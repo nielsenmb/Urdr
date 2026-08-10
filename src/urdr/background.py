@@ -5,11 +5,45 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 import numpy as np
+from idun import fit_background as fit_idun_background
 from numpy.typing import ArrayLike, NDArray
 from scipy.optimize import least_squares
 
 FloatArray = NDArray[np.float64]
 ComplexArray = NDArray[np.complex128]
+
+
+@dataclass(frozen=True)
+class RunsBackgroundConfig:
+    """Configuration for Idun's runs-informed hard background estimator.
+
+    Parameters
+    ----------
+    a, b
+        Scale and exponent of the local-median half-width.
+    half_width_min, half_width_max
+        Bounds on the half-width in microhertz.
+    smooth_sigma_bins
+        Gaussian run-detection width in frequency bins.
+    run_quantile
+        Null run-length quantile used to identify elevated runs.
+    removal_quantile
+        Power quantile used to replace bins in elevated runs.
+    iterations
+        Maximum number of detection, replacement, and refit passes.
+    edge_sigmas
+        Smoothing widths excluded at both frequency-grid edges.
+    """
+
+    a: float = 0.5
+    b: float = 1.0
+    half_width_min: float = 5.0
+    half_width_max: float = 500.0
+    smooth_sigma_bins: float = 1.0
+    run_quantile: float = 0.75
+    removal_quantile: float = 0.25
+    iterations: int = 1
+    edge_sigmas: float = 3.0
 
 
 @dataclass(frozen=True)
@@ -170,7 +204,56 @@ class HarveyBackgroundConfig:
         )
 
 
-BackgroundConfig = EmpiricalBackgroundConfig | HarveyBackgroundConfig
+BackgroundConfig = RunsBackgroundConfig | EmpiricalBackgroundConfig | HarveyBackgroundConfig
+
+
+def estimate_runs_background(
+    frequency_uhz: ArrayLike,
+    power: ArrayLike,
+    config: RunsBackgroundConfig | None = None,
+) -> FloatArray:
+    """Estimate a PSD background with Idun's ``runs_hard`` method.
+
+    The zero-frequency bin used by real Fourier spectra is excluded from the
+    Idun fit and assigned the lowest positive-frequency background value.
+
+    Parameters
+    ----------
+    frequency_uhz
+        Strictly increasing, regularly spaced frequency grid in microhertz.
+    power
+        Non-negative periodogram power on the frequency grid.
+    config
+        Optional runs-informed estimator configuration.
+
+    Returns
+    -------
+    numpy.ndarray
+        Estimated mean background power on the input grid.
+    """
+    settings = config or RunsBackgroundConfig()
+    frequency, psd = _validate_spectrum(frequency_uhz, power, minimum_bins=8)
+    positive = frequency > 0
+    if np.count_nonzero(positive) < 8:
+        raise ValueError("spectrum contains too few positive-frequency bins")
+    floor = np.finfo(float).tiny
+    positive_background = fit_idun_background(
+        frequency[positive],
+        np.maximum(psd[positive], floor),
+        a=settings.a,
+        b=settings.b,
+        half_width_min=settings.half_width_min,
+        half_width_max=settings.half_width_max,
+        smooth_sigma_bins=settings.smooth_sigma_bins,
+        run_quantile=settings.run_quantile,
+        removal_quantile=settings.removal_quantile,
+        iterations=settings.iterations,
+        edge_sigmas=settings.edge_sigmas,
+    )
+    background = np.empty_like(frequency)
+    background[positive] = positive_background
+    background[~positive] = positive_background[0]
+    return background
 
 
 def estimate_empirical_background(
@@ -333,13 +416,15 @@ def estimate_background(
     power
         Periodogram power on the frequency grid.
     config
-        Empirical or Harvey-like background configuration.
+        Runs-informed, empirical, or Harvey-like background configuration.
 
     Returns
     -------
     numpy.ndarray
         Estimated background power on the input grid.
     """
+    if isinstance(config, RunsBackgroundConfig):
+        return estimate_runs_background(frequency_uhz, power, config)
     if isinstance(config, EmpiricalBackgroundConfig):
         return estimate_empirical_background(frequency_uhz, power, config)
     if isinstance(config, HarveyBackgroundConfig):
@@ -361,7 +446,9 @@ def whiten_spectrum(
     spectrum
         Complex Fourier spectrum.
     config
-        Optional empirical or Harvey-like background configuration.
+        Optional background configuration. Idun's ``runs_hard`` method is the
+        default; empirical and Harvey-like configurations remain available for
+        benchmark comparisons.
 
     Returns
     -------
@@ -371,7 +458,7 @@ def whiten_spectrum(
         Estimated background power on the input grid.
     """
     complex_spectrum = np.asarray(spectrum, dtype=complex)
-    settings = config or EmpiricalBackgroundConfig()
+    settings = config or RunsBackgroundConfig()
     background = estimate_background(
         frequency_uhz, np.abs(complex_spectrum) ** 2, settings
     )

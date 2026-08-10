@@ -3,10 +3,44 @@ import numpy as np
 from urdr import (
     EmpiricalBackgroundConfig,
     HarveyBackgroundConfig,
+    RunsBackgroundConfig,
+    estimate_background,
     estimate_empirical_background,
     estimate_harvey_background,
+    estimate_runs_background,
     whiten_spectrum,
 )
+
+
+def test_runs_background_matches_idun_and_supports_dc_bin() -> None:
+    """Urdr delegates positive frequencies to Idun and fills the DC bin."""
+    from idun import fit_background
+
+    rng = np.random.default_rng(918)
+    frequency = np.linspace(0.0, 3000.0, 30_001)
+    expected = 1.0 + 40.0 / (1.0 + (frequency / 250.0) ** 2)
+    power = rng.exponential(expected)
+
+    estimated = estimate_runs_background(frequency, power)
+    direct = fit_background(frequency[1:], power[1:])
+
+    np.testing.assert_allclose(estimated[1:], direct)
+    assert estimated[0] == estimated[1]
+
+
+def test_runs_background_is_default_whitening_estimator() -> None:
+    """Default whitening uses the runs-informed configuration."""
+    frequency = np.linspace(0.0, 2000.0, 4097)
+    spectrum = np.exp(1j * np.linspace(-np.pi, np.pi, frequency.size))
+
+    _, default = whiten_spectrum(frequency, spectrum)
+    explicit = estimate_background(
+        frequency,
+        np.abs(spectrum) ** 2,
+        RunsBackgroundConfig(),
+    )
+
+    np.testing.assert_allclose(default, explicit)
 
 
 def test_legacy_background_tracks_smooth_exponential_psd() -> None:

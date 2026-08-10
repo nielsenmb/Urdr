@@ -14,8 +14,7 @@ The current implementation provides:
 - explicit `TimeSeries` and `ObservingWindow` models;
 - exact-window white-noise, granulation, and stochastic mode-comb simulations;
 - deterministic paired simulations for target-specific null calibration;
-- optional empirical running-median background removal, including an
-  AsteroScale-informed high-S/N safeguard;
+- Idun's runs-informed hard background removal as the production default;
 - a paired benchmark for no removal, legacy empirical whitening,
   target-aware empirical whitening, and a fitted Harvey-like baseline;
 - reproducible multi-target grids for calibrating the empirical smoothing law
@@ -44,7 +43,7 @@ localises the oscillation envelope.
 The original Nielsen et al. (2022) repeating-pattern workflow is available
 separately from Urdr's experimental time-domain estimator. Mimir calculates a
 critically sampled Lomb--Scargle power-density spectrum from only the observed
-timestamps. Urdr divides out the empirical background, applies the published
+timestamps. Urdr divides out Idun's runs-informed background, applies the published
 Hanning filter bank, and evaluates the squared complex magnitude of the
 inverse transform. Taking the complex magnitude removes the rapid filter-centre
 carrier that remains in a squared real ACF.
@@ -54,7 +53,6 @@ import numpy as np
 
 from urdr import (
     AsteroScaleSamples,
-    EmpiricalBackgroundConfig,
     PublishedEACFSearch,
     SimulationConfig,
     TimeSeries,
@@ -65,11 +63,7 @@ from urdr import (
 series = TimeSeries.from_arrays(time_grid_days, flux_with_nans)
 centres = np.linspace(500.0, 1500.0, 101)
 
-eacf = compute_published_eacf_map(
-    series,
-    centres,
-    background=EmpiricalBackgroundConfig(),
-)
+eacf = compute_published_eacf_map(series, centres)
 print(eacf.best_numax_uhz, eacf.best_delta_nu_uhz)
 
 simulation = SimulationConfig(
@@ -340,6 +334,13 @@ result = SimulationCalibrator(simulations=128, seed=42).calibrate(
 )
 print(result.false_alarm_probability)
 ```
+
+## Background treatment
+
+The production EACF and exact-window calibration paths use Idun's ``runs_hard``
+method with its held-out optimal defaults. Urdr accepts a zero-frequency Fourier
+bin by fitting the positive-frequency spectrum and extending the first estimate
+to DC.
 
 ## Empirical background experiment
 
