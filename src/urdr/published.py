@@ -10,7 +10,7 @@ from nifty_ls import lombscargle
 from numpy.typing import ArrayLike, NDArray
 from scipy.fft import ifft, next_fast_len
 
-from .background import BackgroundConfig, EmpiricalBackgroundConfig, estimate_background
+from .background import BackgroundConfig, RunsBackgroundConfig, estimate_background
 from .models import AsteroScaleSamples, TimeSeries
 from .simulation import SimulationConfig, simulate_time_series
 
@@ -436,7 +436,7 @@ def compute_published_eacf_map(
     max_lag_seconds
         Optional largest returned lag.
     background
-        Background estimator. The legacy empirical estimator is the default.
+        Background estimator. Idun's runs-informed hard estimator is the default.
     scaling
         Physical ``numax``--``delta_nu`` relation and accepted scatter.
     spectrum_oversampling
@@ -461,7 +461,7 @@ def compute_published_eacf_map(
     )
     spectrum, snr = _spectrum_and_snr(
         series,
-        background or EmpiricalBackgroundConfig(),
+        background or RunsBackgroundConfig(),
         oversampling=spectrum_oversampling,
     )
     plan = _prepare_plan(
@@ -522,7 +522,7 @@ def calibrate_published_eacf(
         filter_widths,
         scaling,
     )
-    settings = map_kwargs.get("background") or EmpiricalBackgroundConfig()
+    settings = map_kwargs.get("background") or RunsBackgroundConfig()
     spectrum_oversampling = int(map_kwargs.get("spectrum_oversampling", 1))
     lag_oversampling = int(map_kwargs.get("lag_oversampling", 2))
     spectrum, observed_snr = _spectrum_and_snr(
